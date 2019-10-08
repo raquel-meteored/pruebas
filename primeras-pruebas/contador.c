@@ -26,4 +26,7 @@ void func( void ) {
 
    printf("i is %d and count is %d\n", i, count);
    printf("number entered; %d\n",number);
+
+
+
 }
