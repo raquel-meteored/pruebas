@@ -61,6 +61,7 @@ int main (){
 	fclose(jpegout); */
 
 	gdImageDestroy (im);
+	/*hola*/
 	gdImageDestroy (im2);
 	gdImageDestroy (im3);
 }
