@@ -1,5 +1,5 @@
 
-
+/*hola*/
 #include "gd.h"
 #include <stdio.h>
 
