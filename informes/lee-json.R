@@ -1,5 +1,8 @@
 
 library("rjson")
+library("ggplot2")
+library("scales")
+library("xtable")
 
 result <- fromJSON(file = "../data/1.json")
 
@@ -16,9 +19,16 @@ result <- fromJSON(file = "../data/1.json")
 
 localidad=result$nombre
 
-ndias=2
+ndias=dim(summary(result$dias))[1]
 nhoras=24
 tam=ndias*nhoras
+t3h=c( which(hora=="02:00"), which(hora=="05:00"), which(hora=="08:00"), which(hora=="11:00"), which(hora=="14:00"),which(hora=="17:00"),which(hora=="20:00"),which(hora=="23:00"))
+
+dirname=c("N","NE","E","SE","S","SW","W","NW")
+dir=seq(0,359,45)
+u=c(0,1,1,1,0,-1,-1,-1)
+v=c(1,1,0,-1,-1,0,1,1)
+dir2=cbind(dirname,dir,u,v)
 
 dia=numeric(tam)
 hora=numeric(tam)
@@ -31,9 +41,14 @@ nubosidad=numeric(tam)
 viento=numeric(tam)
 precipitacion=numeric(tam)
 humedad=numeric(tam)
+dir=numeric(tam)
+u=numeric(tam)
+v=numeric(tam)
 
 k=0
+
 for (dd in 1:ndias) {
+ nhoras=dim(summary(result$dias[[dd]]$horas))[1]
  for (hh in 1:nhoras) {
          k=k+1	 
 	 dia[k]=result$dias[[dd]]$dia
@@ -47,15 +62,36 @@ for (dd in 1:ndias) {
 	 nubosidad[k]=result$dias[[dd]]$horas[[hh]]$nubosidad
 	 humedad[k]=result$dias[[dd]]$horas[[hh]]$humedad
 	 viento[k]=result$dias[[dd]]$horas[[hh]]$viento$velocidad
-	 
-	 
+         dir[k]=subset(dir2[,2], dir2[,1]==result$dias[[dd]]$horas[[hh]]$viento$direccion)
+         u[k]=subset(dir2[,3], dir2[,1]==result$dias[[dd]]$horas[[hh]]$viento$direccion)
+         v[k]=subset(dir2[,4], dir2[,1]==result$dias[[dd]]$horas[[hh]]$viento$direccion)
+         	 
  }
 }
 
 fechaok=as.POSIXct(fecha, format="%Y%m%d %H:%M", tz= "GMT")
+#get position of each 3h
+t3h=sort(c(which(hora=="02:00"), which(hora=="05:00"), which(hora=="08:00"), which(hora=="11:00"), which(hora=="14:00"),which(hora=="17:00"),which(hora=="20:00"),which(hora=="23:00")))
+t12h=sort(c(which(hora=="02:00"), which(hora=="14:00")))
+t24h=which(hora=="14:00")
+
+
+png("uv.png")
+tstep=seq(1,48,6)
+par(mfrow=c(2,4))
+for (i in tstep) { 
+    plot(c(0,u[i]),c(0,v[i]),xlim=c(-1,1),ylim=c(-1,1),type="l", ylab="", xlab="",xaxt= "n", yaxt="n", main=paste(dir[i]," H=", hora[i],sep=""),col="red")
+    axis(2, at=c(-1,0,1),labels=c("SW","W","NW"), col.axis="red", las=2)
+    axis(4, at=c(-1,0,1),labels=c("SE","E","NE"), col.axis="red", las=2)
+    axis(1, at=c(0),labels=c("N"), col.axis="red", las=2)
+    axis(3, at=c(0),labels=c("S"), col.axis="red", las=2)
+}
+
+png("dir.png")
+plot(fechaok,dir)
 
 png("presion.png")
-plot(fechaok,presion,type="h",col="purple",xlab="Fecha",ylab="Presion", main="Presion (hPa)")
+plot(fechaok[t3h],presion[t3h],type="h",col="purple",xlab="Fecha",ylab="Presion", main="Presion (hPa)")
 
 
 png("precipitacion.png")
