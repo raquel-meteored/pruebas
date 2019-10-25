@@ -6,6 +6,12 @@ library("xtable")
 
 result <- fromJSON(file = "../data/1.json")
 
+kk=data.frame(date=fechaok[t3h],wind=viento[t3h],u=as.numeric(u[t3h]),v=as.numeric(v[t3h]))
+kk$x.end <- kk$date + minutes(180)
+ggplot(kk, aes(x=date, y=wind)) + geom_line(col="green") + geom_segment( aes(x=date, xend=xend, y = wind, yend= wind+0.5*v), arrow = arrow(length = unit(0.2,"cm")))
+ggplot(kk, aes(x=date, y=wind)) + geom_line() + geom_text(aes(angle=-dir+90),label="-->",size=3)
+
+
 #result$dias[[6]]$dia
 #result$dias[[6]]$horas[[2]]$hora
 #result$dias[[6]]$horas[[2]]$presion

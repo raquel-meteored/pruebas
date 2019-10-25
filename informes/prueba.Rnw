@@ -1,13 +1,65 @@
-\documentclass{article} 
-\usepackage{graphicx} 
-%Title 
-\title{PREVISION PARA ALMENDRICOS} 
-\date{\today} 
-\author{Meteored} 
- 
-\begin{document} 
-  
-\maketitle % Create cover page 
+\documentclass[11pt,letterpaper]{article}
+\usepackage{graphicx}
+\usepackage{fancybox}
+\usepackage[utf8]{inputenc} %solucion del problema de los acentos.
+\usepackage{multicol,pst-plot}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage[many]{tcolorbox}
+\usepackage{svg}
+
+%%%%%%%%%  ESTILO DOC %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\definecolor{meteoblue}{RGB}{0,160,250}
+\tcbset{mystyle/.style={
+  breakable,
+  enhanced,
+  outer arc=0pt,
+  arc=0pt,
+  colframe=meteoblue,
+  colback=meteoblue!20,
+  attach boxed title to top left,
+  boxed title style={
+    colback=meteoblue,
+    outer arc=0pt,
+    arc=0pt,
+    },
+  title=Example~\thetcbcounter,
+  fonttitle=\sffamily
+  }
+}
+
+\newtcolorbox[auto counter,number within=section]{example}[1][]{
+  mystyle,
+  title=AVISO,
+  }
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%Title
+\title{PREVISION PARA ALMENDRICOS}
+\date{\today}
+\author{Meteored}
+
+\begin{document}
+
+%%%%%%%%%%%CABECERA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagestyle{plain}
+\begin{flushright}
+Almendricos, Espa\~na\\
+\underline{Alpred, S.L}
+\end{flushright}
+
+\begin{flushleft}\vspace{-8mm}
+\begin{figure}[h]
+\includegraphics[width=0.2\textwidth]{/home/raquel/repos/pruebas/informes/meteoredlogo.pdf}
+\end{figure}
+\end{flushleft}
+
+\vspace{-1mm}
+%\textcolor{meteoblue}{\rule{\linewidth}{1mm}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\maketitle % Create cover page
 %PREVISION PARA ALMENDRICOS 
 
 
@@ -15,12 +67,14 @@
 library("rjson")
 library("xtable") #tablas latex
 library("scales") #fechas
+require("lubridate",warn.conflicts = FALSE, quietly=TRUE)  #fechas
 library("ggplot2") #figuritas mas complicadas
+library("gridExtra") #juntar figuras
 @
 
 <<ReadFiles, echo=FALSE, results = 'hide' >>=
 #read json file
-result <- fromJSON(file = "../data/1.json")
+result <- fromJSON(file = "/home/raquel/data/1.json")
 
 #length days
 ndias=dim(summary(result$dias))[1]
@@ -81,98 +135,158 @@ fechaok=as.POSIXct(fecha, format="%Y%m%d %H:%M", tz= "GMT")
 t3h=sort(c(which(hora=="02:00"), which(hora=="05:00"), which(hora=="08:00"), which(hora=="11:00"), which(hora=="14:00"),which(hora=="17:00"),which(hora=="20:00"),which(hora=="23:00")))
 t12h=sort(c(which(hora=="02:00"), which(hora=="14:00")))
 t24h=which(hora=="14:00")
+kk=data.frame(dateok=fechaok[t3h],hora=hora[t3h],nub=nubosidad[t3h],hum=humedad[t3h],presion=presion[t3h],precip=precipitacion[t3h],temp=temperatura[t3h],trocio=rocio[t3h],rad=radiacion[t3h],wind=viento[t3h],u=as.numeric(u[t3h]),v=as.numeric(v[t3h]),dir=as.numeric(dir[t3h]))
+kk24=data.frame(date=fechaok[t24h],wind=viento[t24h],u=as.numeric(u[t24h]),v=as.numeric(v[t24h]),dir=as.numeric(dir[t24h]))
+theme_set(theme_bw())
 @
 
-Prediccion para \Sexpr{result$nombre}
+\begin{center}\vspace{-1cm}
+\textcolor{meteoblue}{\textbf{ \huge Prediccion para \textcolor{meteoblue}{\Sexpr{result$nombre}} }}\\
+\date{\today}
+\end{center}
 
+\textcolor{meteoblue}{\rule{\linewidth}{1mm}}
+
+\vspace{2cm}
 
 NOTA: PRECIPITACION HORARIA PRIMERAS 24H!
+\vspace{2cm}
+\begin{example}
+La temperaturea maxima es \Sexpr{max(temperatura)} \\
+La temperaturea media es \Sexpr{mean(temperatura)}
+\end{example}
 
+\vspace{2cm}
+\begin{example}
 
-\begin{figure}[h!]
+La temperaturea maxima es \Sexpr{max(temperatura)} \\
+La temperaturea media es \Sexpr{mean(temperatura)}
+\end{example}
+
+\begin{figure}
 <<Figprec, echo=FALSE>>=
-kk=data.frame(fechaok[t3h],nubosidad[t3h],humedad[t3h])
-theme_set(theme_bw())
-pggplot<-ggplot(kk,aes(x=fechaok.t3h.)) +
-geom_area(aes(y=nubosidad.t3h.),fill="grey",alpha=0.5) +
-geom_line(aes(y=humedad.t3h.),col="cyan")+
-scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%a%b\n%d") +
-theme(panel.grid.minor = element_blank())
-par(mfrow=c(3,1))
-plot(fechaok[t3h],presion[t3h],type="h",lwd=3,col="blue",xlab=" ",ylab="Presion", main="Presion (hPa)",ylim=c(950,1030),las=1, xaxt="n")
-axis.POSIXct(1,at=seq(min(fechaok[t3h]),max(fechaok[t3h]),by="days"),format="%a%b\n%d")
-plot(fechaok[t3h],precipitacion[t3h],type="h",col="blue",xlab=" ",ylab="Precipitacion",main="Precipitacion (mm)",ylim=c(0,30),las=1, xaxt="n")
-axis.POSIXct(1,at=seq(min(fechaok[t3h]),max(fechaok[t3h]),by="days"),format="%a%b\n%d")
-pggplot
+pnub <-ggplot(kk,aes(x=dateok)) +
+geom_area(aes(y=nub),fill="grey",alpha=0.5) +
+geom_line(aes(y=hum),col="#56B4E9",size=1.5)+
+scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
+labs(title="Nubosidad y humedad relativa (%)", x=" ", y=" ")
+
+ppresion <-ggplot(kk,aes(x=dateok)) +
+geom_line(aes(y=presion),col="purple",size=1.5)+
+scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
+labs(title="Presión (hPa)", x=" ", y="")
+
+pprecip <-ggplot(kk,aes(x=dateok)) +
+geom_line(aes(y=precip),col="cyan",size=1.5)+
+scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
+labs(title="Precipitación (mm)", x=" ", y="",caption="Source: ECMWF")
+
+grid.arrange(pnub, ppresion, pprecip, ncol = 1, nrow = 3)
 @
 \end{figure}
 
 
 \begin{figure}[h!]
 <<Figtemp, echo=FALSE>>=
-par(mfrow=c(3,1))
-plot(fechaok[t3h],temperatura[t3h],type="l",col="red",xlab=" ",ylab="Temperatura", main="Temperatura (ºC)",ylim=c(0,35),las=1, xaxt="n")
-axis.POSIXct(1,at=seq(min(fechaok[t3h]),max(fechaok[t3h]),by="days"),format="%a%d\n%b")
-text(fechaok[t12h],temperatura[t12h],label=temperatura[t12h])
-points(fechaok[t12h],temperatura[t12h],col="red",cex=0.8)
-plot(fechaok[t3h],rocio[t3h],type="l",col="red",xlab=" ",ylab="Temperatura", main="Punto de Rocio (ºC)",ylim=c(-2,24),las=1, xaxt="n")
-axis.POSIXct(1,at=seq(min(fechaok[t3h]),max(fechaok[t3h]),by="days"),format="%a%d\n%b")
-plot(fechaok[t3h],nubosidad[t3h],type="l",col="red",xlab=" ",ylab=" ",main="Humedad (%)",ylim=c(0,100),las=1, xaxt="n")
-axis.POSIXct(1,at=seq(min(fechaok[t3h]),max(fechaok[t3h]),by="days"),format="%a%d\n%b")
+ptemp <-ggplot(kk,aes(x=dateok)) +
+geom_line(aes(y=temp),col="red")+
+geom_line(aes(y=trocio),col="#56B4E9")+
+scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%b \n %a \n %d")+
+theme(plot.title=element_text(size=10, face="bold",color="red", lineheight=1.2))+
+ggtitle("Temperatura (C)")+
+theme(plot.title=element_text(size=10, face="bold",color="blue", lineheight=1.2))+
+ggtitle("Temperatura (C)")+
+labs(x="", y= "")
+
+ptrocio <-ggplot(kk,aes(x=dateok)) +
+geom_area(aes(y=rad),fill="#E69F00",alpha=0.5) +
+scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
+labs(title="Radiación", x="", y="")
+
+grid.arrange(ptemp, ptrocio, ncol = 1, nrow = 2)
+@
+\end{figure}
+
+\begin{figure}
+<<Figdir2, echo=FALSE>>=
+scalingdate=as.numeric(diff(range(kk24$date)))*60*60
+scalingwind=diff(range(kk24$wind))/10
+kk24 <- within(kk24, {
+dirwind <- -dir +90
+x.end<- date + scalingdate * cos (dirwind/180 * pi)
+y.end<- wind + scalingwind * sin (dirwind/180 * pi)
+})
+ggdir <- ggplot(kk24, aes(x=date, y=wind)) + geom_line(col="aquamarine",size=1.5) +
+         geom_segment(aes(xend=date, x=x.end, yend = wind, y = y.end), arrow = arrow(length = unit(0.2,"cm")))+
+         scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
+         labs(title="Dirección y velocidad del viento a 10 m",y="viento")
+
+scalingdate=as.numeric(diff(range(kk$dateok)))*60*60
+scalingwind=diff(range(kk$wind))/10
+kk <- within(kk, {
+dirwind <- -dir +90
+x.end<- dateok + scalingdate * cos (dirwind/180 * pi)
+y.end<- wind + scalingwind * sin (dirwind/180 * pi)
+})
+
+ggdir2 <- ggplot(kk, aes(x=dateok, y=wind)) + geom_line(col="aquamarine",size=1.5) +
+         geom_segment(aes(xend=dateok, x=x.end, yend = wind, y = y.end), arrow = arrow(length = unit(0.2,"cm")))+
+         scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
+         labs(title="Dirección y velocidad del viento a 10 m",y="viento")
+grid.arrange(ggdir, ggdir2, ncol = 1, nrow = 2)
 @
 \end{figure}
 
 \begin{figure}[h!]
-<<Figwind, echo=FALSE>>=
-par(mfrow=c(2,1))
-plot(fechaok[t3h],viento[t3h],type="h", lwd=3 ,col="green",xlab="Fecha",ylab="Velocidad", main="Velocidad del viento",ylim=c(0,30),las=1, xaxt="n")
-axis.POSIXct(1,at=seq(min(fechaok[t24h]),max(fechaok[t24h]),by="days"),format="%d\n%b")
-plot(fechaok[t3h],radiacion[t3h],type="h", lwd=3 ,col="gold",xlab="Fecha",ylab=" ", main="Radiacion",las=1, xaxt="n")
-axis.POSIXct(1,at=seq(min(fechaok[t24h]),max(fechaok[t24h]),by="days"),format="%d\n%b")
+<<Figdir3, echo=FALSE>>=
+dias=date(kk$dateok)
+horas=hour(kk$dateok)
+kk <- within(kk, {
+dirwind <- -dir +90
+x.end <- dias + 0.5*cos (dirwind/180 * pi)
+y.end <- as.numeric(horas) + 0.5*sin (dirwind/180 * pi)
+dia <- dias
+hora <- horas
+})
+
+ggdir3 <- ggplot(kk, aes(x= dia, y=hora , fill=wind))+
+            geom_raster() +
+            geom_segment(aes(xend= dia, x= x.end, yend = hora, y = y.end), arrow = arrow(length = unit(0.2,"cm")))+
+            scale_fill_distiller(palette="YlGnBu",breaks=seq(0,20,2))+
+            scale_x_date(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
+            scale_y_continuous(breaks=seq(2,23,3))+
+            theme(legend.position = 'bottom', legend.direction = 'horizontal', legend.text = element_text(colour="black", size=10))+
+            labs(title="Dirección y velocidad del viento a 10 m",y="Hora",x="")
+#axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()
+ggdir3
 @
 \end{figure}
+
 
 \begin{figure}[h!]
 <<Figdir, echo=FALSE>>=
-tstep=seq(1,48,6)
-par(mfrow=c(2,4))
+tstep=seq(1,16)
+par(mfrow=c(4,4))
 for (i in tstep) { 
-    plot(c(0,u[i]),c(0,v[i]),xlim=c(-1,1),ylim=c(-1,1),type="l", ylab="", xlab="",xaxt= "n", yaxt="n", main=paste(dir[i]," H=", hora[i],sep=""),col="red")
+    plot(c(0,kk24$u[i]),c(0,kk24$v[i]),xlim=c(-1,1),ylim=c(-1,1),type="l", ylab="", xlab="",xaxt= "n", yaxt="n", main=paste(kk24$dir[i]," H=", kk24$date[i] ,sep=""),col="red")
     axis(2, at=c(-1,0,1),labels=c("SW","W","NW"), col.axis="red", las=2)
     axis(4, at=c(-1,0,1),labels=c("SE","E","NE"), col.axis="red", las=2)
-    axis(1, at=c(0),labels=c("N"), col.axis="red", las=2)
-    axis(3, at=c(0),labels=c("S"), col.axis="red", las=2)
+    axis(1, at=c(0),labels=c("S"), col.axis="red", las=2)
+    axis(3, at=c(0),labels=c("N"), col.axis="red", las=2)
 }
 @
 \end{figure}
 
-\begin{figure}[h!]
-<<Fig1, echo=FALSE>>=
-kk=data.frame(fechaok[t3h],nubosidad[t3h],humedad[t3h])
-theme_set(theme_bw())
-p<-ggplot(kk,aes(x=fechaok.t3h.)) + 
-geom_area(aes(y=nubosidad.t3h.),fill="grey",alpha=0.5) + 
-geom_line(aes(y=humedad.t3h.),col="cyan")+ 
-scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%b\n%d") + 
-theme(panel.grid.minor = element_blank())
-p
-@
-\end{figure}
-
+\vspace{5cm}
 \newpage
 
 <<CreateTable,  echo=FALSE, results = 'asis'>>=
 kk=cbind(fecha[t3h], presion[t3h],temperatura[t3h], dir[t3h])
-table_latex <- xtable(kk,caption = "cosas")
+table_latex <- xtable(kk24,caption = "cosas")
 print(table_latex,
    latex.environments =  c("scriptsize", "center", "widestuff"),
 	          floating = FALSE
 		  )
 @
-
-
-La temperaturea media es \Sexpr{mean(temperatura)}
-
-La temperaturea maxima es \Sexpr{max(temperatura)}
 
 \end{document}
