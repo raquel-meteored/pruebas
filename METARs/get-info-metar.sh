@@ -18,6 +18,7 @@
 DIR_DATA=~/data/VALIDACION/
 AAAAMMDDHH=$(date +%Y%m%d%H%M)
 scriptName=$(basename $0 .sh)
+weeknum=$(date '+%W')
 lockFile=${DIR_DATA}/${scriptName}_${AAAAMMDDHH}.lock
 filemetarID=meteoflight_reports.php
 
@@ -37,7 +38,8 @@ for icao in $metarID; do
   last=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .last] | sort []')
 
   #curl http://aire.ogimet.com/meteoflight_reports.php?ICAO=$icao -o METAR-$icao.json
-  echo $icao $last $temp $lat $lon $alt  >> ${DIR_DATA}/METAR-$icao.txt
+ # echo $icao $last $temp $lat $lon $alt  >> ${DIR_DATA}/METAR-$icao.txt
+  echo $icao $last $temp $AAAAMMDDHH >> ${DIR_DATA}/METAR-$icao-$weeknum.txt
+  mv $filemetarID > ${DIR_DATA}/basura/METAR-$icao-$AAAAMMDDHH.json
 done
 echo 'fin del metar'
-
