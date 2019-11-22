@@ -24,7 +24,7 @@ minS=-8
 maxS=8
 
 
-pdf(args[2])
+png(args[2])
 i=1
 index=which(kk[,9]<leadhora[i+1] & kk[,9]>leadhora[i])
 datos=data.frame(fecha=fechaMET[index], metar=kk[index,5], lwr=kk[index,5]-1, upr= kk[index,5]+1,predic=kk[index,3])
