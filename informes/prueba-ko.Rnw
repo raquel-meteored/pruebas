@@ -2,7 +2,6 @@
 \documentclass[[a4paper,landscape]{article}
 \usepackage{graphicx}
 \usepackage{fancybox}
-\usepackage{fancyhdr} %pie de pagina y cabecera
 \usepackage[utf8]{inputenc} %solucion del problema de los acentos.
 \usepackage{multicol,pst-plot}
 \usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
@@ -12,9 +11,6 @@
 
 %%%%%%%%%  ESTILO DOC %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \definecolor{meteoblue}{RGB}{0,160,250}
-
-
-
 \tcbset{mystyle/.style={
   breakable,
   enhanced,
@@ -38,36 +34,34 @@
   title=AVISO,
   }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\pagestyle{fancy}
 
-\fancyhead{}
-\fancyhead[L]{\tiny\bfseries The product}
-\fancyhead[R]{Alpred}
-\fancyhead[C]{\today}
-\fancyfoot{}
-\fancyfoot[LE,RO]{\thepage}
-\fancyfoot[LO,RE]{User Guide}
-\fancyfoot[C]{Other information}
-
+%Title
+\title{PREVISION PARA ALMENDRICOS}
+\date{\today}
+\author{Meteored}
 
 \begin{document}
 
 %%%%%%%%%%%CABECERA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%\pagestyle{plain}
-%\begin{flushright}
-%Almendricos, Espa\~na\\
-%\underline{Alpred, S.L}
-%\end{flushright}
+\pagestyle{plain}
+\begin{flushright}
+Almendricos, Espa\~na\\
+\underline{Alpred, S.L}
+\end{flushright}
 
-%\begin{flushleft}\vspace{-8mm}
-%\begin{figure}[h]
-%\includegraphics[width=0.2\textwidth]{/home/raquel/repos/pruebas/informes/meteoredlogo.pdf}
-%\end{figure}
-%\end{flushleft}
+\begin{flushleft}\vspace{-8mm}
+\begin{figure}[h]
+\includegraphics[width=0.2\textwidth]{/home/raquel/repos/pruebas/informes/meteoredlogo.pdf}
+\end{figure}
+\end{flushleft}
 
-%\vspace{-1mm}
+\vspace{-1mm}
 %\textcolor{meteoblue}{\rule{\linewidth}{1mm}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\maketitle % Create cover page
+%PREVISION PARA ALMENDRICOS 
+
 
 <<LoadPackages, echo=FALSE, results = 'hide'>>=
 library("rjson")
@@ -78,44 +72,17 @@ require("lubridate",warn.conflicts = FALSE, quietly=TRUE)  #fechas
 library("ggplot2") #figuritas mas complicadas
 library("gridExtra") #juntar figuras
 library(grid) #juntar figuras
-#library("jsonlite")
+library("jsonlite")
 @
 
 <<ReadFiles, echo=FALSE, results = 'hide' >>=
 #read json file
-result <- fromJSON(file = "/home/raquel/data/prueba.json")
-#hola=fromJSON("/home/raquel/data/prueba.json")
+#result <- fromJSON(file = "/home/raquel/data/prueba.json")
+#result=fromJSON("/home/raquel/data/prueba.json")
+result=fromJSON("file-999888776.json")
 
-#length days
-ndias=dim(summary(result$dias))[1]
-ndias=10
-nhoras=24
-tam=ndias*nhoras
-
-##allocate vectors
-#daily data
-ddia=numeric(ndias)
-tmax=numeric(ndias)
-tmin=numeric(ndias)
-
-#hourly data
-dia=numeric(tam)
-hora=numeric(tam)
-fecha=character(tam)
-
-presion=numeric(tam)
-temperatura=numeric(tam)
-rocio=numeric(tam)
-nubosidad=numeric(tam)
-viento=numeric(tam)
-precipitacion=numeric(tam)
-humedad=numeric(tam)
-radiacion=numeric(tam)
-dir=numeric(tam)
-u=numeric(tam)
-v=numeric(tam)
-rumbo=numeric(tam)
-rachas=numeric(tam)
+var=result$dias$horas
+var_meteo=c("hora","nubosidad","presion","radiacion","humedad")
 
 #descompose wind dir
 dirname=c("N","NE","E","SE","S","SW","W","NW")
@@ -124,11 +91,32 @@ u=c(0,1,1,1,0,-1,-1,-1)
 v=c(1,1,0,-1,-1,0,1,1)
 dir2=cbind(dirname,dir,u,v)
 
+for (i in 1:10) {
+  nam <- paste("kk",i,sep="")
+  ppmet=subset(var[[i]], select=var_meteo)
+  pptemp=subset(var[[i]]$temperatura, select=c(valor,rocio))
+  ppprec=subset(var[[i]]$precipitacion, select=c(valor))
+  ppwind=subset(var[[i]]$viento, select=c(velocidad,direccion,rachas))
+  pp=cbind(ppmet,pptemp,ppprec,ppwind)
+  assign(nam, pp)
+}
+
+kkall=rbind(kk1,kk2,kk3,kk4,kk5,kk6,kk7,kk8,kk9,kk10)
+
+hora=kkall$hora
+t3h=result$dias$horas[[10]]$hora
+t3hindex=sort(which(hora== t3h[1] | hora== t3h[2] | hora== t3h[3] | hora== t3h[4] | hora== t3h[5] | hora== t3h[6] | hora== t3h[7] | hora== t3h[8] ))
+t6hindex=sort(which(hora== t3h[1]  | hora== t3h[3]  | hora== t3h[5] | hora== t3h[7] ))
+
+dato3h=kkall[t3hindex,]
+dato6h=kkall[t6hindex,]
+
+ddia=result$dias$dia
+tmax=result$dias$temperatura$maxima
+tmin=result$dias$temperatura$minima
+
 k=0
 for (dd in 1:ndias) {
-    ddia[dd]=result$dias[[dd]]$dia
-    tmax[dd]=result$dias[[dd]]$temperatura$maxima
-    tmin[dd]=result$dias[[dd]]$temperatura$minima
 
     nhoras=dim(summary(result$dias[[dd]]$horas))[1]
     for (hh in 1:nhoras) {
@@ -138,16 +126,17 @@ for (dd in 1:ndias) {
         fecha[k]=paste(dia[k],hora[k])
 
         presion[k]=result$dias[[dd]]$horas[[hh]]$presion
-        temperatura[k]=result$dias[[dd]]$horas[[hh]]$temperatura$valor
-        precipitacion[k]=result$dias[[dd]]$horas[[hh]]$precipitacion$valor
-        rocio[k]=result$dias[[dd]]$horas[[hh]]$temperatura$rocio
         nubosidad[k]=result$dias[[dd]]$horas[[hh]]$nubosidad
         humedad[k]=result$dias[[dd]]$horas[[hh]]$humedad
-        viento[k]=result$dias[[dd]]$horas[[hh]]$viento$velocidad
         radiacion[k]=result$dias[[dd]]$horas[[hh]]$radiacion
-         #dir is converted in circular and components
-        rumbo[k]=result$dias[[dd]]$horas[[hh]]$viento$direccion
+
+        temperatura[k]=result$dias[[dd]]$horas[[hh]]$temperatura$valor
+        rocio[k]=result$dias[[dd]]$horas[[hh]]$temperatura$rocio
+        precipitacion[k]=result$dias[[dd]]$horas[[hh]]$precipitacion$valor
+        viento[k]=result$dias[[dd]]$horas[[hh]]$viento$velocidad
         rachas[k]=result$dias[[dd]]$horas[[hh]]$viento$rachas
+        rumbo[k]=result$dias[[dd]]$horas[[hh]]$viento$direccion
+         #dir is converted in circular and components
         dir[k]=subset(dir2[,2], dir2[,1]==result$dias[[dd]]$horas[[hh]]$viento$direccion)
         u[k]=subset(dir2[,3], dir2[,1]==result$dias[[dd]]$horas[[hh]]$viento$direccion)
         v[k]=subset(dir2[,4], dir2[,1]==result$dias[[dd]]$horas[[hh]]$viento$direccion)
@@ -156,14 +145,21 @@ for (dd in 1:ndias) {
 
 fechaok=as.POSIXct(fecha, format="%Y%m%d %H:%M", tz= "GMT")
 fechadia=as.Date(as.character(ddia),format="%Y%m%d")
+#get position of each 3h
+#t3h=sort(c(which(hora=="03:00"), which(hora=="06:00"), which(hora=="09:00"), which(hora=="12:00"), which(hora=="15:00"),which(hora=="18:00"),which(hora=="21:00"),which(hora=="24:00")))
+#t6h=sort(c(which(hora=="03:00"), which(hora=="12:00"), which(hora=="18:00"),which(hora=="24:00")))
+#t24=which(hora=="12:00")
+#kkdia=data.frame(datedia=fechadia,tmin=tmin,tmax=tmax)
 
 tam=length(subset(hora, hora>0))
 tam2=tam-7
 tstep3=hora[tam2:tam]
+tstep6=hora[seq(tam2,tam,2)]
+tstep24=hora[seq(tam2,tam,7)]
+t3h=which(hora==tstep3)
+t6h=which(hora==tstep6)
+t24h=which(hora==tstep24)
 
-t3h=sort(which(hora== tstep3[1] | hora== tstep3[2] | hora== tstep3[3] | hora== tstep3[4] | hora== tstep3[5] | hora== tstep3[6] | hora== tstep3[7] | hora== tstep3[8] ))
-t6h=sort(which(hora== tstep3[1]  | hora== tstep3[3]  | hora== tstep3[5] | hora== tstep3[7] ))
-t24h=sort(which(hora== tstep3[1]))
 
 kk=data.frame(dateok=fechaok[t3h],hora=hora[t3h],
                 nub=nubosidad[t3h],hum=humedad[t3h],presion=presion[t3h],precip=precipitacion[t3h],
@@ -204,20 +200,19 @@ La temperaturea maxima es \Sexpr{max(temperatura)} \\
 La temperaturea media es \Sexpr{mean(temperatura)}
 \end{example}
 
-\pagestyle{plain}
+
 \begin{figure}
 <<Figtemperatura, echo=FALSE,fig.width=10 , results = 'hide' >>=
 pminmax <-ggplot() +
           ylim(min(kkdia$tmin)-1,max(kkdia$tmax)+5)+
-          geom_line(data=kk,aes(x=dateok,y=temp,color="darkorange"),size=1)+
-          geom_point(data=kk6h, aes(x=dateok,y=temp,color="darkorange")) +
+          geom_line(data=kk,aes(x=dateok,y=temp,color="orange"))+
+          geom_label(data=kk6h, aes(x=dateok, y=temp, label=temp),col="orange",size=3, hjust=-0.5, vjust=0.1, angle=90)+
           geom_line(data=kkdia, aes(x=datedia,y=tmax,color="red"))+
           geom_point(data=kkdia, aes(x=datedia,y=tmax,color="red")) +
           geom_text(data=kkdia, aes(x=datedia,y=tmax,label = tmax, color="red"), vjust = -1, size = 3) +
           geom_line(data=kkdia, aes(x=datedia,y=tmin,color="blue"))+
           geom_point(data=kkdia, aes(x=datedia,y=tmin,color="blue")) +
           geom_text(data=kkdia, aes(x=datedia,y=tmin,label = tmin, color="blue"), vjust = -1, size = 3) +
-          geom_text(data=kk6h, aes(x=dateok, y=temp, label=temp),col="darkorange2",size=3.5, hjust=-0.2, vjust=0.1, angle=90)+
           scale_color_identity(breaks = c("orange", "red","blue"), labels = c("T media", "T max", "T min"),  guide = "legend")+
           scale_x_datetime(name=" ", breaks = breakday, minor_breaks = breaksec, labels= scales::time_format("%A \n %d"), position="top",
                    sec.axis = sec_axis(~ ., name = " ", breaks = breaksec,labels= scales::time_format("%H")))+
@@ -227,23 +222,22 @@ pminmax <-ggplot() +
           #scale_x_date(breaks = date_breaks("1 days"),date_labels = "%b \n %a \n %d")+
           #theme(plot.title=element_text(size=10,color="red", lineheight=-1.5),
          # plot.subtitle = element_text(size=10,color="blue"))+
-          labs(x="", y= "", title="TEMPERATURA (ºC)")
+          labs(x="", y= "", title="Temperatura maxima, mínima y media (ºC)")
 
 ptemp <- ggplot() +
-        geom_line(data=kk,aes(x=dateok,y=temp,color="darkorange"),size=1)+
-        geom_point(data=kk6h, aes(x=dateok, y=temp),col="darkorange",size=1.8)+
-        geom_line(data=kk,aes(x=dateok,y=trocio,color="green3"),size=1)+
-        geom_line(data=kk,aes(x=dateok,y=hum/5,color="cyan3"),size=1)+
-        geom_point(data=kk6h, aes(x=dateok, y=hum/5),col="cyan3",size=1.8)+
-        geom_label(data=kk6h, aes(x=dateok, y=hum/5, label=hum),col="cyan3",size=3.5, hjust=-0.2, vjust=0.2)+
-        scale_color_identity(breaks = c("darkorange", "green3","cyan3"), labels = c("T media", "T rocio", "Humedad"),  guide = "legend")+
+        geom_line(data=kk,aes(x=dateok,y=temp,color="orange"),size=1.2)+
+        geom_line(data=kk,aes(x=dateok,y=trocio,color="aquamarine3"),size=1.2)+
+        geom_line(data=kk,aes(x=dateok,y=hum/5,color="#56B4E9"),size=1.2)+
+        geom_point(data=kk6h, aes(x=dateok, y=hum/5,col="#56B4E9"),size=1.8)+
+        geom_label(data=kk6h, aes(x=dateok, y=hum/5, label=hum),col="#56B4E9",size=3, hjust=-0.5, vjust=0.1, angle=90)+
+        scale_color_identity(breaks = c("orange", "aquamarine3","#56B4E9"), labels = c("T media", "T rocio", "Humedad"),  guide = "legend")+
         scale_x_datetime(name=" ", breaks = breakday, minor_breaks = breaksec, labels= scales::time_format("%A \n %d"), position="top",
                            sec.axis = sec_axis(~ ., name = " ", breaks = breaksec,labels= scales::time_format("%H")))+
         theme(legend.position = "bottom", legend.title= element_blank(), axis.title.x = element_blank(), legend.box="horizontal",
                         panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "grey"),
                         panel.grid.minor = element_line(size = 0.25, linetype = 'solid',  colour = "grey"))+
          #scale_color_discrete(name = "Y series", labels = c("Y2", "Y1"))+
-        labs(x="", y= "")
+        labs(x="", y= "", title="Temperatura a 2m (ºC), Punto de rocio (ºC) y Humedad relativa (%)")
 
 grid.newpage()
 grid.draw(rbind(ggplotGrob(pminmax), ggplotGrob(ptemp), size = "last"))
@@ -259,26 +253,31 @@ pprec <-ggplot() +
        geom_point(data=kk6h, aes(x=dateok, y=(presion-980)*escala), col="purple",size=1.8)+
        geom_point(data=kk, aes(x=dateok, y=(presion-980)*escala), col="purple",size=1.2)+
        geom_text(data=kk6h, aes(x=dateok, y=(presion-980)*escala, label=presion), col="purple", size=3, hjust=-0.5, vjust=0.1, angle=90)+
-       geom_bar(data=kk, aes(x=dateok, y=precip*100, color="deepskyblue3"), fill="lightblue", stat="identity") +
-       geom_text(data=kk, aes(x=dateok,y=precip*100, label = precip), vjust = 0.5, hjust= -0.5, size = 3, col="deepskyblue3", angle=90)+
-       scale_color_identity(breaks = c("purple","deepskyblue3","grey"), labels = c("Presión atmosférica (hPa)", "Precipitacion (mm)","Nubosidad (%)"), guide = guide_legend(override.aes=aes(fill=NA)))+
-       scale_y_continuous(name="Nubosidad (%)", limits = c(0, 100), breaks = seq(0, 100, by = 10))+
-       labs(title="PRECIPITACIÓN, PRESIÓN ATMOSFÉRICA, NUBOSIDAD Y RADIACIÓN",  x=" ", y=" ")+
+       geom_bar(data=kk, aes(x=dateok, y=precip*100, color="cyan3"), fill="cyan3", stat="identity") +
+       geom_text(data=kk, aes(x=dateok,y=precip*100, label = precip), vjust = 0.5, hjust= -0.5, size = 3, col="cyan3", angle=90)+
+ #      scale_fill_identity(breaks = c("grey","cyan3"), labels = c("Nubosidad (%)","Precipitacion (mm)"), guide = "legend")+
+ #      scale_color_identity(breaks = c("purple"), labels = c("Presión atmosférica (hPa)"), guide = guide_legend(override.aes=aes(fill=NA)))+
+      scale_color_identity(breaks = c("purple","cyan3","grey"), labels = c("Presión atmosférica (hPa)", "Precipitacion (mm)","Nubosidad (%)"), guide = guide_legend(override.aes=aes(fill=NA)))+
+       #scale_y_continuous(name="Humedad (%)", sec.axis = sec_axis(~.*0.01, name = "Precipitación [mm]"), limits=c(0,100))+
+       scale_y_continuous(name="Humedad (%)", limits = c(0, 100), breaks = seq(0, 100, by = 10))+
+       labs(title="Precipitación, presión atmosférica y nubosidad",  x=" ", y=" ")+
        scale_x_datetime(name=" ", breaks = breakday, minor_breaks = breaksec, labels= scales::time_format("%A \n %d"), position="top",
                                sec.axis = sec_axis(~ ., name = " ", breaks = breaksec,labels= scales::time_format("%H")))+
        theme(legend.position = "bottom", legend.title= element_blank(), legend.key=element_blank(), legend.box="horizontal",
               axis.title.x = element_blank(), panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "grey"),
               panel.grid.minor = element_line(size = 0.25, linetype = 'solid',  colour = "grey"))
 
- prad <-ggplot(kk,aes(x=dateok)) +
-         geom_area(aes(y=rad, color="gold") ,fill="gold" , alpha=0.5) +
-        scale_color_identity(breaks="gold", labels = "Radiación", guide = guide_legend(override.aes=aes(fill=NA)))+
-        labs( x="", y="")+
+prad <-ggplot(kk,aes(x=dateok)) +
+        geom_area(aes(y=rad),fill="#E69F00",alpha=0.5) +
+        theme(plot.title=element_text(size=10, color="#E69F00", lineheight=1.2))+
+        guides(legend.title="kk")+
+        labs(title="Radiación", x="", y="")+
         scale_x_datetime(name=" ", breaks = breakday, minor_breaks = breaksec, labels= scales::time_format("%A \n %d"), position="top",
                                        sec.axis = sec_axis(~ ., name = " ", breaks = breaksec,labels= scales::time_format("%H")))+
         theme(legend.position = "bottom", legend.title= element_blank(), axis.title.x = element_blank(), legend.box="horizontal",
                       panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "grey"),
                       panel.grid.minor = element_line(size = 0.25, linetype = 'solid',  colour = "grey"))
+
 
 grid.newpage()
 grid.draw(rbind(ggplotGrob(pprec), ggplotGrob(prad), size = "last"))
@@ -290,7 +289,7 @@ grid.draw(rbind(ggplotGrob(pprec), ggplotGrob(prad), size = "last"))
 <<Figdir2, echo=FALSE, fig.width=10, results = 'hide' >>=
 scalingdate=as.numeric(diff(range(kk$dateok)))*60*60
 scalingwind=diff(range(kk$wind))/10
-windbase=-3
+windbase=-2
 kk6h <- within(kk6h, {
 dirwind <- -dir +90
 x.end<- dateok + scalingdate * cos (dirwind/180 * pi)
@@ -300,18 +299,16 @@ y.end<- windbase + scalingwind * sin (dirwind/180 * pi)
 ggdir2 <- ggplot() +
          geom_line(data=kk, aes(x=dateok, y=wind, color="aquamarine3"),size=1.2) +
          ylim(-5, max(kk$rachas)) +
-         geom_segment(data=kk6h, aes(xend=dateok, x=x.end, yend = windbase, y = y.end), col="cyan3", arrow = arrow(length = unit(0.2,"cm")))+
-         geom_label(data=kk6h, aes(y=-1,x=dateok,label=rumbo),size=2,fill="beige")+
-         geom_line(data=kk, aes(x=dateok, y = rachas, col="salmon"),size=1)+
-         geom_point(data=kk6h, aes(x=dateok, y=rachas, col="salmon"),size=1.8)+
-         geom_text(data=kk6h, aes(x=dateok, y=rachas, label=rachas), col="black",size=3, vjust=0.2)+
+         geom_segment(data=kk6h, aes(xend=dateok, x=x.end, yend = -2, y = y.end), col="#56B4E9", arrow = arrow(length = unit(0.2,"cm")))+
+         geom_label(data=kk6h, aes(y=0,x=dateok,label=rumbo),size=3)+
+         geom_line(data=kk, aes(x=dateok, y = rachas, col="salmon"),size=1.2)+
          scale_color_identity(breaks = c("aquamarine3", "salmon"), labels = c("Viento", "Rachas"),  guide = "legend")+
          scale_x_datetime(name=" ", breaks = breakday, minor_breaks = breaksec, labels= scales::time_format("%A \n %d"), position="top",
                            sec.axis = sec_axis(~ ., name = " ", breaks = breaksec,labels= scales::time_format("%H")))+
          theme(legend.position = "bottom", legend.title= element_blank(), axis.title.x = element_blank(), legend.box="horizontal",
-                       panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "grey"),
+                       panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "grey2"),
                        panel.grid.minor = element_line(size = 0.25, linetype = 'solid',  colour = "grey"))+
-         labs(title="VIENTO (km/h)",y="viento")
+         labs(title="Dirección y velocidad del viento a 10 m",y="viento")
 
 
 ggdir2
@@ -430,7 +427,6 @@ ggdir3
 %@
 
 \textcolor{meteoblue}{Informaci\'on}
-Descripción de las variables meteorol\'ogicas
 \begin{itemize}
 \item Presi\'on atmosf\'erica
 \item Precipitaci\'on. NOTA: PRECIPITACION HORARIA PRIMERAS 24H!
@@ -439,9 +435,8 @@ Descripción de las variables meteorol\'ogicas
 \item Punto de rocío
 \item Direcci\'on del viento
 \item Velocidad del Viento
-\item \textbf{Radiaci\'on Solar}: Cantidad de energía acumulada en un periodo de tiempo y se mide en Julios/m$^2$
+\item Radiaci\'on Solar
 \end{itemize}
-NOTA: La magnitud de cada variable se proporciona cada tres horas.
-IFS (Integrated Forecasting System)
+
 
 \end{document}

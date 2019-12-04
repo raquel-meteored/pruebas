@@ -19,21 +19,27 @@ function datePID {
 software="Rscript pdfjoin"
 which ${software} > /dev/null 2>&1 || { echo "$(datePID): ${software} no está instalado." && exit 1; }
 
-#Directorios
+#Comprobación de que existen los directorios
 DIR_BASE=/home/cep/METAR
 DIR_DATA=$DIR_BASE/data/VALIDACION
 DIR_PLOTS=$DIR_DATA/PLOTS
 mkdir -p ${DIR_DATA} ${DIR_PLOTS}
 
-#Ficheros
+#Comprobación de que existen los Ficheros
 filegeonameID=${DIR_BASE}/geonameId-icao-correspondencia.txt #uso este fichero para que gonameID siempre correspoda al mismo METAR
 filemetarID=meteoflight_reports.php #se descarga
+if [[ ! -e $filegeonameID ]]; then
+	echo "$(datePID): $filegeonameID no exite"
+  exit 1;
+fi
+if [[ -e ${filemetarID} ]] ; then
+  rm -f $filemetarID
+fi
 
-#scripts
+#Comprobación de que existen los scripts
 scriptR1=${DIR_BASE}/plot-PREDICvsMETAR.R
 scriptR2=${DIR_BASE}/mapa-errores-METAR.R
 
-#Comprobación de que existen los directorios, ficheros y scripts
 if [[ ! -e $scriptR1 ]]; then
 	echo "$(datePID): $scriptR1 no exite"
   exit 1;
@@ -42,13 +48,7 @@ if [[ ! -e $scriptR2 ]]; then
 	echo "$(datePID): $scriptR2 no exite"
   exit 1;
 fi
-if [[ ! -e $filegeonameID ]]; then
-	echo "$(datePID): $filegeonameID no exite"
-  exit 1;
-fi
-if [[ -e ${filemetarID} ]] ; then
-  rm -f $filemetarID
-fi
+
 
 #TODO ver si lockFile funciona
 # Definición de fichero de bloqueo y de finalización.
