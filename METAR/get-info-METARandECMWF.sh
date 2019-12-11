@@ -147,8 +147,14 @@ do
         filein=$fnameVALIDA.txt
         fileout=${DIR_DATA}/kkMEAN-BIAS-$icao-$weekDOWNLOAD.txt
         plotout=${DIR_PLOTS}/T-PREDIC-METAR-$icao-$weekDOWNLOAD.png
-        Rscript --vanilla ${DIR_BASE}/plot-PREDICvsMETAR.R $filein $plotout $icao $lon $lat $fileout
-	      echo "$(datePID): Fin plots w R $icao"
+
+        if [ ! -e $filein ];
+        then
+          echo "$(datePID): No encontrado $filein"
+        else
+          Rscript --vanilla ${DIR_BASE}/plot-PREDICvsMETAR.R $filein $plotout $icao $lon $lat $fileout
+          echo "$(datePID): Fin plots w R $icao"
+        fi
 
       elif [ -e ${fnamePREDIC}.json ]
       then

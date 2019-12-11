@@ -19,7 +19,7 @@ biasmean=round(mean(sesgo),2)
 maxmae=round(max(abs(sesgo)),2)
 
 write.table(cbind(lon, lat, biasmean,rmse,mae,maxmae),args[6],col.names=FALSE, row.names=args[3])
-datos=data.frame(fecha=fechaMET, metar=tempMET, lwr=tempMET-0.5, upr= tempMET+0.5,predic=tempPRE)
+datos=data.frame(fecha=fechaMET, metar=tempMET, lwr=tempMET-0.5, upr= tempMET+0.5, predic=tempPRE)
 
 #Limites
 minT=round(min(min(tempPRE),min(tempMET)))-1
