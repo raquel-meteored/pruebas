@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="240"
+   height="51"
+   version="1.1"
+   id="svg4"
+   sodipodi:docname="meteoredlogo.svg"
+   inkscape:version="0.92.1 r15371">
+  <metadata
+     id="metadata10">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs8" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="640"
+     inkscape:window-height="480"
+     id="namedview6"
+     showgrid="false"
+     inkscape:zoom="1.6541667"
+     inkscape:cx="120"
+     inkscape:cy="25.5"
+     inkscape:window-x="0"
+     inkscape:window-y="27"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg4" />
+  <path
+     d="M100 29h13.2v-6H100v-4h14.6v-6.5H92.4v27.2h22.4v-6.4H100V29zm132.2-3c0-4.3-3-6.8-7.7-6.8h-3V33h3c4.6 0 7.7-2.5 7.7-6.8V26zm7.8 0c0 7.9-5.8 13.7-15.7 13.7h-10.5V12.5h10.6c9.9 0 15.6 5.6 15.6 13.5zm-97.8-1.6l1.2-1.6-1.8-1 .2-2h-2l-.9-1.8-1.7 1-1.7-1.2-1 1.7-2-.2v1.2c1.4.4 2.7 1.4 3.3 2.7a4 4 0 0 1 3 1.5c1.4.2 2.6.9 3.3 1.9l1.1-.5V26l-1-1.6zm-1.1 4.8v-.3a2.6 2.6 0 0 0-3-2.3h-.3l-.2-.3-.2-.3a2 2 0 0 0-2.3-.7l-.6.2-.1-.6a3.5 3.5 0 0 0-3.4-2.7h-.4c-1.7.1-3 1.4-3 3.2v.6h-.6a3 3 0 0 0-2.2 2.9c0 1.5 1.5 2.8 3 2.9h10.7c1.4-.1 2.6-1.2 2.6-2.6zm7.6-3.2c0 2.7-.7 5.4-2.2 7.7L148 39l-5-1.4c-1.3.8-2.6 1.5-4 2h-.1l-.7.2-.6.2a13.6 13.6 0 0 1-1.4.2h-.5l-1.3.1c-8 0-14.3-6.3-14.3-14V26c0-7.8 6.4-14 14.3-14s14.3 6.2 14.3 14zM63 19.1h8.3v20.6h7.6V19.1h8.3v-6.6H63v6.6zM172 22.3c0-2.2-1.6-3.2-4.1-3.2h-5v6.5h5c2.6 0 4.1-1.3 4.1-3.2v-.1zm2 8l6.6 9.4h-8.8l-5.6-8.2H163v8.2h-7.7V12.5h13c4.3 0 7.2 1.1 9 3a8.4 8.4 0 0 1 2.5 6.3c0 4.2-2.3 7-5.7 8.4zm19-1.3h13.3v-6h-13.2v-4h14.6v-6.5h-22.2v27.2H208v-6.4h-14.8V29zM43.9 29H57v-6H43.8v-4h14.6v-6.5H36.2v27.2h22.4v-6.4H43.8V29zm-29.1-6L8 12.6H0v27.2h7.5V24.2l7 10.5h.2l7-10.6v15.6h7.6V12.5h-8l-6.6 10.6z"
+     fill="#009EE2"
+     fill-rule="evenodd"
+     id="path2" />
+</svg>

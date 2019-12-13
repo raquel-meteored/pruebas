@@ -23,6 +23,7 @@ which ${software} > /dev/null 2>&1 || { echo "$(datePID): ${software} no está i
 DIR_BASE=/home/cep/METAR
 DIR_DATA=$DIR_BASE/data/VALIDACION
 DIR_PLOTS=$DIR_DATA/PLOTS
+DIR_ECMWF=/home/ecmwf
 mkdir -p ${DIR_DATA} ${DIR_PLOTS}
 
 #Comprobación de que existen los Ficheros
@@ -106,7 +107,7 @@ do
       then
         #TODO no estoy usando fecha START ni fechaLEAD
 	      ## Uso la fecha inicial del fichero para hacerme una idea del LEAD time
-        fechaSTART=$(jq '.dias[0].utime.start' $fnamePREDIC.json )
+        #fechaSTART=$(cat $fnamePREDIC.json | jq '.dias[0].utime.start')
         #fechaSTARTok=$(date --date=@$(echo $fechaSTART/1000 | bc) '+%Y%m%d%H%M')
 
 	      ##Para los METAR puede que haya pasos temporales sin datos de temp (con o sin NIL)
@@ -121,28 +122,30 @@ do
             fechaUP=$( echo $idate + 1800000 | bc)
             fechaDW=$( echo $idate - 1800000 | bc)
             fechaPRED=$(jq '.dias[].horas[] | select (.utime <= '$fechaUP' and .utime > '$fechaDW') | .utime' $fnamePREDIC.json)
+            fechaPREDu=$( echo $fechaPRED + 3600000 | bc)
+            fechaPREDd=$( echo $fechaPRED - 3600000 | bc)
+            fechaDIF=$(echo '('$fechaPRED' - '$fechaMETAR') / 60000 ' | bc ) # minutos
             #fechaLEAD=$(echo '('$fechaMETAR' - '$fechaSTART') / 3600000' | bc ) #horas entre inicio de predic y METAR
-            if [ ! -z "$fechaPRED" ] #puede ocurrir que la fecha del METAR no esté en el json de la predicc
-            then
-              fechaDIF=$(echo '('$fechaPRED' - '$fechaMETAR') / 60000 ' | bc ) # minutos
-              tempPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .temperatura.valor' $fnamePREDIC.json)
-              #tempBIAS=$(echo $tempPRED - $temp | bc )
+            fechaPASADA=
+            fechaSTEP=
+            fileECMWF=${DIR_ECMWF}/A1D$fechaPASADA$fechaSTEP
+            tempPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .temperatura.valor' $fnamePREDIC.json)
+            tempECMWF=$(grib_get -l '${lat}','${lon}',1 -w shortName=2t '${fileECMWF}')
+            #tempBIAS=$(echo $tempPRED - $temp | bc )
 
-	            #Nos aseguramos que los datos se comparan con la última pasada
-              if [ -e $fnameVALIDA.txt ]
-              then
-                  mv  $fnameVALIDA.txt kkrmdate
-                  cat kkrmdate | awk 'NF==6' | grep -v $fechaMETAR  >  $fnameVALIDA.txt
-                  rm kkrmdate
-              fi
-              # TODO simplificar, sobran columnas? NF
- 	            # Escribe datos en un archivo .txt para que pinte R (5 columnas!)
- 	            # R sólo va a usar $fechaPRED $tempPRED $fechaMETAR $temp
-              echo "$fechaDIF" "$fechaPRED" "$tempPRED" "$fechaMETAR" "$temp" "$fechaMETARok" >> "$fnameVALIDA".txt
-            else
-              echo "$(datePID): WARNING'fechaPRED vacío' $fechaPRED $fechaDW $fechaUP fechaMETAR' $fechaMETAR $fechaMETARok" >&2
+	          #Nos aseguramos que los datos se comparan con la última pasada
+            if [ -e $fnameVALIDA.txt ]
+            then
+              mv  $fnameVALIDA.txt kkrmdate
+              cat kkrmdate | awk 'NF==6' | grep -v $fechaMETAR  >  $fnameVALIDA.txt
+              rm kkrmdate
             fi
+            # TODO simplificar, sobran columnas? NF
+ 	          # Escribe datos en un archivo .txt para que pinte R (5 columnas!)
+ 	          # R sólo va a usar $fechaPRED $tempPRED $fechaMETAR $temp
+            echo "$fechaDIF" "$fechaPRED" "$tempPRED" "$fechaMETAR" "$temp" "$fechaMETARok" >> "$fnameVALIDA".txt
           fi
+
         done
         echo "$(datePID): Ini plots w R $icao"
 
@@ -150,14 +153,8 @@ do
         filein=$fnameVALIDA.txt
         fileout=${DIR_DATA}/kkMEAN-BIAS-$icao-$weekDOWNLOAD.txt
         plotout=${DIR_PLOTS}/T-PREDIC-METAR-$icao-$weekDOWNLOAD.png
-
-        if [ ! -e $filein ];
-        then
-          echo "$(datePID): No encontrado $filein"
-        else
-          Rscript --vanilla ${DIR_BASE}/plot-PREDICvsMETAR.R $filein $plotout $icao $lon $lat $fileout
-          echo "$(datePID): Fin plots w R $icao"
-        fi
+        Rscript --vanilla ${DIR_BASE}/plot-PREDICvsMETAR.R $filein $plotout $icao $lon $lat $fileout
+	      echo "$(datePID): Fin plots w R $icao"
 
       elif [ -e ${fnamePREDIC}.json ]
       then
