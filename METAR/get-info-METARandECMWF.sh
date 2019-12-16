@@ -74,7 +74,6 @@ TIMEOUT=60 #máximo número de segundos intentando conectarse
 echo "$(datePID): Inicia descarga de $filemetarID"
 curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php -o $filemetarID
 echo "$(datePID): Fin descarga de $filemetarID"
-
 metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep 'LE[A-Z][A-Z]' | cut -c2-5)
 
 #Truco de Juan para asegurarme que tengo t-odos los json descargados adecaudamente
@@ -87,6 +86,7 @@ do
     fnameMETAR=${DIR_DATA}/METAR-$icao-${dateDOWNLOAD}
     fnamePREDIC=${DIR_DATA}/PREDIC-$icao-${dateDOWNLOAD}
     fnameVALIDA=${DIR_DATA}/VALIDA-$icao-${weekDOWNLOAD}
+    fnameECMWF=${DIR_DATA}/ECMWF-$icao-${weekDOWNLOAD}
 
     if [ ! -e "${fnamePREDIC}".json ]
     then
@@ -135,18 +135,18 @@ do
                   cat kkrmdate | awk 'NF==6' | grep -v $fechaMETAR  >  $fnameVALIDA.txt
                   rm kkrmdate
               fi
-              # TODO simplificar, sobran columnas? NF
- 	            # Escribe datos en un archivo .txt para que pinte R (5 columnas!)
- 	            # R sólo va a usar $fechaPRED $tempPRED $fechaMETAR $temp
+
+ 	            # Escribe datos en un archivo .txt para que pinte R
               echo "$fechaDIF" "$fechaPRED" "$tempPRED" "$fechaMETAR" "$temp" "$fechaMETARok" >> "$fnameVALIDA".txt
-            else
-              echo "$(datePID): WARNING'fechaPRED vacío' $fechaPRED $fechaDW $fechaUP fechaMETAR' $fechaMETAR $fechaMETARok" >&2
+            #else
+            #  echo "$(datePID): WARNING'fechaPRED vacío' $icao $fechaPRED $fechaDW $fechaUP fechaMETAR' $fechaMETAR $fechaMETARok" >&2
             fi
           fi
         done
         echo "$(datePID): Ini plots w R $icao"
 
-        #warning: si se cambian los parámetros de entradas modificar R consecuentemente
+        #Nos aseguramos de que: 1) existe el archico y 2) tiene más de 1 fila y 3) todas las filas tienen NF columnas
+        #TODO ver si eliminamos columnas. Ahora R sólo usa: $fechaPRED $tempPRED $fechaMETAR $temp
         filein=$fnameVALIDA.txt
         fileout=${DIR_DATA}/kkMEAN-BIAS-$icao-$weekDOWNLOAD.txt
         plotout=${DIR_PLOTS}/T-PREDIC-METAR-$icao-$weekDOWNLOAD.png
@@ -155,8 +155,16 @@ do
         then
           echo "$(datePID): No encontrado $filein"
         else
-          Rscript --vanilla ${DIR_BASE}/plot-PREDICvsMETAR.R $filein $plotout $icao $lon $lat $fileout
-          echo "$(datePID): Fin plots w R $icao"
+          nrow=$(cat $filein | wc -l)
+          ncol=$(awk '{print NF}' $filein | sort -nu) # -u remove repeat text/lines
+          # shellcheck disable=SC1072
+          if [ $ncol -eq 6 ] && [ $nrow -gt 1 ];
+          then
+            Rscript --vanilla ${DIR_BASE}/plot-PREDICvsMETAR.R $filein $plotout $icao $lon $lat $fileout
+            echo "$(datePID): Fin plots w R $icao"
+          else
+            echo "$(datePID): $icao nrow or ncol icorrecto"
+          fi
         fi
 
       elif [ -e ${fnamePREDIC}.json ]

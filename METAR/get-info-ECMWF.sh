@@ -44,6 +44,12 @@ elif [[ $# -gt 0 ]] ; then
 
 fi
 
+#Comprobación de que existen los directorios
+DIR_BASE=/home/cep/METAR
+DIR_DATA=$DIR_BASE/data/VALIDACION
+mkdir -p ${DIR_DATA}
+
+
 # Valores por defecto.
 cc="A1"
 S="D" # modelo determinista
@@ -66,32 +72,47 @@ else
   touch ${lockFile}
 fi
 
+###Descarga METARs info: lon lat alt (LE españoles)
+filemetarID=meteoflight_reports.php #se descarga
+echo "$(datePID): Inicia descarga de $filemetarID"
+curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php -o $filemetarID
+echo "$(datePID): Fin descarga de $filemetarID"
+metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep 'LE[A-Z][A-Z]' | cut -c2-5)
+metarID=LEMI
+
 #Sólo cojo las primeras 24 h
-proy_HRES=$(seq --format %03g 0 3 12)
+proy_HRES=$(seq --format %03g 0 3 24)
 proy=(${proy_HRES[@]})
 
 for ((i=0; i<${#proy[@]}; i++)) ; do
-
   mmddhhii="$(date -u +%m%d%H%M --date="${DATE} ${RUN} $(( 10#${proy[$i]} )) hours")"
   # Definimos los ficheros con los que vamos a trabajar y
-    # comprobamos el estado de la proyección.
-    grib=/home/ecmwf/${cc}${S}${MMDDHHII}${mmddhhii}1
-
+  # comprobamos el estado de la proyección.
+  grib=/home/ecmwf/${cc}${S}${MMDDHHII}${mmddhhii}1
     if [[ -f ${grib} ]]; then
+      for icao in $metarID; do
+        fnameECMWF=$DIR_DATA/ECMWF-$icao-$weekDOWNLOAD.txt
+        echo "$(datePID) extrayendo info de ${grib} para $icao"
+        touch ${lockFile} &&
+        lat=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lat] | sort []')
+        lon=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lon] | sort []')
 
-      echo "$(datePID) extrayendo info de ${grib} ..."
-      touch ${lockFile} &&
-      lat=0
-      lon=0
-      icao="pru"
-      #FIXME sobreescribir las fechas ya existentes
-      temp2t=$(grib_get -l ${lat},${lon},1 -w shortName=2t -p date,step ${grib})
-      echo $temp2t
-      echo $temp2t[2]
-      else
+        temp2t=($(grib_get -l ${lat},${lon},1 -w shortName=2t -p date,step ${grib}))
+        fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "${temp2t[1]}"*100 | bc)
+        #Nos aseguramos que los datos se comparan con la última pasada
+        #sobreescibiendo en las fechas ya exisistentes
+        if [ -e $fnameECMWF ]
+        then
+          mv  $fnameECMWF kkrmdate
+          cat kkrmdate | grep -v $fechaECMWF  >  $fnameECMWF
+          rm kkrmdate
+        fi
+        echo $fechaECMWF ${temp2t[2]} >> $fnameECMWF
+      done # end icao loop
+    else
       echo "$(datePID) no exite ${grib} ..."
       rm ${lockFile}
       exit
     fi
-done
+done #end grib files loop
 rm ${lockFile}
