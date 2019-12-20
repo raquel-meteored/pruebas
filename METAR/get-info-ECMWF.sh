@@ -78,27 +78,35 @@ echo "$(datePID): Inicia descarga de $filemetarID"
 curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php -o $filemetarID
 echo "$(datePID): Fin descarga de $filemetarID"
 metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep 'LE[A-Z][A-Z]' | cut -c2-5)
-metarID=LEMI
 
 #Sólo cojo las primeras 24 h
-proy_HRES=$(seq --format %03g 0 3 24)
+proy_HRES=$(seq --format %03g 0 3 23)
 proy=(${proy_HRES[@]})
 
 for ((i=0; i<${#proy[@]}; i++)) ; do
-  mmddhhii="$(date -u +%m%d%H%M --date="${DATE} ${RUN} $(( 10#${proy[$i]} )) hours")"
+  # Caso de fichero de análisis.
+  if [[ $(( 10#${proy[$i]} )) -eq 0 ]] ; then
+    mmddhhii="$(date -u +%m%d%H%M --date="${DATE} ${RUN} 1 minute")"
+  # Resto de casos.
+  else
+    mmddhhii="$(date -u +%m%d%H%M --date="${DATE} ${RUN} $(( 10#${proy[$i]} )) hours")"
+  fi
+
   # Definimos los ficheros con los que vamos a trabajar y
   # comprobamos el estado de la proyección.
   grib=/home/ecmwf/${cc}${S}${MMDDHHII}${mmddhhii}1
     if [[ -f ${grib} ]]; then
       for icao in $metarID; do
+        touch ${lockFile} &&
         fnameECMWF=$DIR_DATA/ECMWF-$icao-$weekDOWNLOAD.txt
         echo "$(datePID) extrayendo info de ${grib} para $icao"
-        touch ${lockFile} &&
+
         lat=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lat] | sort []')
         lon=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lon] | sort []')
 
         temp2t=($(grib_get -l ${lat},${lon},1 -w shortName=2t -p date,step ${grib}))
         fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "${temp2t[1]}"*100 | bc)
+        tempC=$(echo ${temp2t[2]} - 273.15 | bc )
         #Nos aseguramos que los datos se comparan con la última pasada
         #sobreescibiendo en las fechas ya exisistentes
         if [ -e $fnameECMWF ]
@@ -107,7 +115,7 @@ for ((i=0; i<${#proy[@]}; i++)) ; do
           cat kkrmdate | grep -v $fechaECMWF  >  $fnameECMWF
           rm kkrmdate
         fi
-        echo $fechaECMWF ${temp2t[2]} >> $fnameECMWF
+        echo $fechaECMWF $tempC >> $fnameECMWF
       done # end icao loop
     else
       echo "$(datePID) no exite ${grib} ..."

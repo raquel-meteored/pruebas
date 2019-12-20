@@ -121,6 +121,9 @@ do
             fechaUP=$( echo $idate + 1800000 | bc)
             fechaDW=$( echo $idate - 1800000 | bc)
             fechaPRED=$(jq '.dias[].horas[] | select (.utime <= '$fechaUP' and .utime > '$fechaDW') | .utime' $fnamePREDIC.json)
+            fechaPREDok=$(date --date=@$(echo $fechaPRED/1000 | bc) '+%Y%m%d%H%M')
+
+
             #fechaLEAD=$(echo '('$fechaMETAR' - '$fechaSTART') / 3600000' | bc ) #horas entre inicio de predic y METAR
             if [ ! -z "$fechaPRED" ] #puede ocurrir que la fecha del METAR no esté en el json de la predicc
             then
@@ -132,12 +135,23 @@ do
               if [ -e $fnameVALIDA.txt ]
               then
                   mv  $fnameVALIDA.txt kkrmdate
-                  cat kkrmdate | awk 'NF==6' | grep -v $fechaMETAR  >  $fnameVALIDA.txt
+                  cat kkrmdate | awk '{if ($5 == $6 || $6 >100) print $1,$2,$3,$4,$5,'NA'; else print $0}' > kkrmdate2
+                  cat kkrmdate2 | awk 'NF==6' | grep -v $fechaMETAR  >  $fnameVALIDA.txt
                   rm kkrmdate
               fi
 
+              #Cogemos dato de ECMWF
+              #TODO pasar awk a regular expression
+              tempECMWF=$(cat $fnameECMWF.txt | grep $fechaPREDok | awk '{print $2}')
+              if [ -z "$tempECMWF" ]
+              then
+                tempECMWF='NA'
+              fi
+              #echo $tempECMWF
+
  	            # Escribe datos en un archivo .txt para que pinte R
-              echo "$fechaDIF" "$fechaPRED" "$tempPRED" "$fechaMETAR" "$temp" "$fechaMETARok" >> "$fnameVALIDA".txt
+              #echo "$fechaDIF" "$fechaPRED" "$tempPRED" "$fechaMETAR" "$temp" "$fechaMETARok" >> "$fnameVALIDA".txt
+              echo "$fechaDIF" "$fechaPRED" "$tempPRED" "$fechaMETAR" "$temp" "$tempECMWF" >> "$fnameVALIDA".txt
             #else
             #  echo "$(datePID): WARNING'fechaPRED vacío' $icao $fechaPRED $fechaDW $fechaUP fechaMETAR' $fechaMETAR $fechaMETARok" >&2
             fi
