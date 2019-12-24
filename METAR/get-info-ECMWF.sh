@@ -15,6 +15,12 @@ function datePID() {
   echo "$(date -u +%Y-%m-%d\ %H:%M:%S) UTC [$$]"
 }
 
+# Comprobación de que existe software para optimizar.
+#TODO solo dejo el nombre del software sin el path (diferencia entre command y which?)
+#software="grib_get"
+path_software="/usr/local/bin/grib_get"
+#which ${software} > /dev/null 2>&1 || { echo "$(datePID): ${software} no está instalado." && exit 1; }
+
 # Función que muestra la ayuda.
 function showUsage() {
   echo
@@ -104,7 +110,7 @@ for ((i=0; i<${#proy[@]}; i++)) ; do
         lat=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lat] | sort []')
         lon=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lon] | sort []')
 
-        temp2t=($(grib_get -l ${lat},${lon},1 -w shortName=2t -p date,step ${grib}))
+        temp2t=($(${path_software} -l ${lat},${lon},1 -w shortName=2t -p date,step ${grib}))
         fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "${temp2t[1]}"*100 | bc)
         tempC=$(echo ${temp2t[2]} - 273.15 | bc )
         #Nos aseguramos que los datos se comparan con la última pasada
@@ -114,6 +120,7 @@ for ((i=0; i<${#proy[@]}; i++)) ; do
           mv  $fnameECMWF kkrmdate
           cat kkrmdate | grep -v $fechaECMWF  >  $fnameECMWF
           rm kkrmdate
+
         fi
         echo $fechaECMWF $tempC >> $fnameECMWF
       done # end icao loop
