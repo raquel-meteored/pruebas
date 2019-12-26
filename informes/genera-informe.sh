@@ -15,13 +15,12 @@ function datePID {
   }
 
 #TODO validar parámetros de entrada
-zona='Europe/Madrid'
+#zona='Europe/Madrid'
 
 function showUsage {
   echo
   echo " Uso: ${scriptName}  "
   echo
-  echo "      [0-9]{9} - geonameID."
   echo "      []     - Longitude."
   echo "      xxx    - Latitude."
   echo "      xxx    - altitud"
@@ -35,24 +34,18 @@ if [ ${#} -lt 2 ] ; then
   showUsage
   exit 1
 else
-  if [[ "${1}" =~ ^[0-9]+$ ]]; then
-    geonameId="${1}"
-  else
-    showUsage
-    exit 1
-  fi
-  if [[ "${2}" =~ ^[a-zA-Z]+$ && "${3}" =~ [a-zA-Z/a-zA-Z] ]] ; then
-    name="${2}"
-    zona="${3}"
+  if [[ "${1}" =~ ^[a-zA-Z]+$ && "${2}" =~ [a-zA-Z/a-zA-Z] ]] ; then
+    name="${1}"
+    zona="${2}"
   else
     echo 'Check location: name and zona horaria'
     showUsage
     exit 1
   fi
-  if [[ "${4}" =~ ^-?[0-9]*[.]?[0-9]*$ && "${5}" =~ ^-?[0-9]*[.]?[0-9]*$ && "${6}" =~ ^-?[0-9]*[.]?[0-9]*$ ]] ; then
-    lon="${4}"
-    lat="${5}"
-    alt="${6}"
+  if [[ "${3}" =~ ^-?[0-9]*[.]?[0-9]*$ && "${4}" =~ ^-?[0-9]*[.]?[0-9]*$ && "${5}" =~ ^-?[0-9]*[.]?[0-9]*$ ]] ; then
+    lon="${3}"
+    lat="${4}"
+    alt="${5}"
   else
     echo 'Check coordenates: longitude, latitude and altitude'
     showUsage
@@ -78,7 +71,8 @@ fi
 LIM=350 #maxímo número de segundos de descarga
 TIMEOUT=60 #máximo número de segundos intentando conectarse
 
-fnamePREDIC=file-$geonameId
-curl -s -m $LIM --connect-timeout $TIMEOUT 'http://aguila.ogimet.com/cgi-bin/otf12?geonameId='$geonameId'&latitud='$lat'&longitud='$lon'&altitud='$alt'&zonaHoraria='$zona'&name='$name'' -o "$fnamePREDIC".json
+fnamePREDIC=file-$name
+#curl -s -m $LIM --connect-timeout $TIMEOUT 'http://halcon.ogimet.com/cgi-bin/otf12?geonameId='$geonameId'&latitud='$lat'&longitud='$lon'&altitud='$alt'&zonaHoraria='$zona'&name='$name'' -o "$fnamePREDIC".json
+curl -s -m $LIM --connect-timeout $TIMEOUT 'http://halcon.ogimet.com/cgi-bin/otf12?latitud='$lat'&longitud='$lon'&altitud='$alt'&zonaHoraria='$zona'&name='$name'' -o "$fnamePREDIC".json
 cp $fnamePREDIC.json /home/raquel/data/prueba.json
 Rscript starter.R
