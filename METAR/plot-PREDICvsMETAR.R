@@ -1,4 +1,5 @@
 args = commandArgs(trailingOnly=TRUE)
+options(warn=-1)
 library(ggplot2)
 
 valida=read.table(args[1],na.strings="NA")

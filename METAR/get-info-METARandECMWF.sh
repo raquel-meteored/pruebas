@@ -26,12 +26,12 @@ DIR_PLOTS=$DIR_DATA/PLOTS
 mkdir -p ${DIR_DATA} ${DIR_PLOTS}
 
 #Comprobación de que existen los Ficheros
-filegeonameID=${DIR_BASE}/geonameId-icao-correspondencia.txt #uso este fichero para que gonameID siempre correspoda al mismo METAR
+#filegeonameID=${DIR_BASE}/geonameId-icao-correspondencia.txt #uso este fichero para que gonameID siempre correspoda al mismo METAR
 filemetarID=meteoflight_reports.php #se descarga
-if [[ ! -e $filegeonameID ]]; then
-	echo "$(datePID): $filegeonameID no exite"
-  exit 1;
-fi
+#if [[ ! -e $filegeonameID ]]; then
+#	echo "$(datePID): $filegeonameID no exite"
+#  exit 1;
+#fi
 if [[ -e ${filemetarID} ]] ; then
   rm -f $filemetarID
 fi
@@ -95,11 +95,11 @@ do
       curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php?ICAO=$icao -o "$fnameMETAR".json
       ##Descarga forecast info del json file en la localidad del METAR
 
-      geonameId=$(cat $filegeonameID | grep "$icao" | awk '{print $2}')
+      #geonameId=$(cat $filegeonameID | grep "$icao" | awk '{print $2}')
       lat=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lat] | sort []')
       lon=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lon] | sort []')
       alt=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .alt] | sort []')
-      curl -s -m $LIM --connect-timeout $TIMEOUT 'http://aguila.ogimet.com/cgi-bin/otf12?geonameId='$geonameId'&latitud='$lat'&longitud='$lon'&altitud='$alt'&zonaHoraria=etc/UTC&name='$icao'' -o $fnamePREDIC.json
+      curl -s -m $LIM --connect-timeout $TIMEOUT 'http://aguila.ogimet.com/cgi-bin/otf12?latitud='$lat'&longitud='$lon'&altitud='$alt'&zonaHoraria=etc/UTC&name='$icao'' -o $fnamePREDIC.json
       echo "$(datePID): Fin descarga de json"
 
       if [ $? -eq 0 ]
@@ -117,7 +117,7 @@ do
           then
             fechaMETAR=$idate
             fechaMETARok=$(date --date=@$(echo $fechaMETAR/1000 | bc) '+%Y%m%d%H%M')
-
+            echo $fechaMETARok
             #Busco la predicción más cercana a la fecha del METAR
             fechaUP=$( echo $idate + 1800000 | bc)
             fechaDW=$( echo $idate - 1800000 | bc)
