@@ -35,7 +35,6 @@ function showUsage() {
 
 # Control de los argumentos imprescindibles.
 if [[ $# -eq 0 ]] ; then
-
   showUsage
   exit 1
 
@@ -47,14 +46,12 @@ elif [[ $# -gt 0 ]] ; then
     showUsage
     exit 1
   fi
-
 fi
 
 #Comprobación de que existen los directorios
 DIR_BASE=/home/cep/METAR
 DIR_DATA=$DIR_BASE/data/VALIDACION
 mkdir -p ${DIR_DATA}
-
 
 # Valores por defecto.
 cc="A1"
@@ -111,7 +108,8 @@ for ((i=0; i<${#proy[@]}; i++)) ; do
         lon=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lon] | sort []')
 
         temp2t=($(${path_software} -l ${lat},${lon},1 -w shortName=2t -p date,step ${grib}))
-        fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "${temp2t[1]}"*100 | bc)
+        paso=$(echo   "${temp2t[1]}" +  "${RUN}" | bc)
+        fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "${paso}"*100 | bc)
         tempC=$(echo ${temp2t[2]} - 273.15 | bc )
         #Nos aseguramos que los datos se comparan con la última pasada
         #sobreescibiendo en las fechas ya exisistentes
@@ -125,9 +123,10 @@ for ((i=0; i<${#proy[@]}; i++)) ; do
         echo $fechaECMWF $tempC >> $fnameECMWF
       done # end icao loop
     else
-      echo "$(datePID) no exite ${grib} ..."
+      echo "$(datePID) no existe ${grib} ..."
       rm ${lockFile}
       exit
     fi
 done #end grib files loop
+echo "Fin descarga ecmwf data"
 rm ${lockFile}

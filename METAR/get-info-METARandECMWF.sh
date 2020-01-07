@@ -5,6 +5,7 @@
 ### 2. Compara temperaturas
 ### 3. Pinta series con R y mapa de sesgo
 ### RLP 11-2019
+# Raquel Lorente Plazas <raquel@meteored.com>
 ###################################################################################
 # Nombre del script.
 scriptName=$(basename "$0")
@@ -117,16 +118,16 @@ do
           then
             fechaMETAR=$idate
             fechaMETARok=$(date --date=@$(echo $fechaMETAR/1000 | bc) '+%Y%m%d%H%M')
-            echo $fechaMETARok
+            #echo $fechaMETARok
             #Busco la predicción más cercana a la fecha del METAR
             fechaUP=$( echo $idate + 1800000 | bc)
             fechaDW=$( echo $idate - 1800000 | bc)
             fechaPRED=$(jq '.dias[].horas[] | select (.utime <= '$fechaUP' and .utime > '$fechaDW') | .utime' $fnamePREDIC.json)
-            fechaPREDok=$(date --date=@$(echo $fechaPRED/1000 | bc) '+%Y%m%d%H%M')
 
             #fechaLEAD=$(echo '('$fechaMETAR' - '$fechaSTART') / 3600000' | bc ) #horas entre inicio de predic y METAR
             if [ ! -z "$fechaPRED" ] #puede ocurrir que la fecha del METAR no esté en el json de la predicc
             then
+              fechaPREDok=$(date --date=@$(echo $fechaPRED/1000 | bc) '+%Y%m%d%H%M')
               fechaDIF=$(echo '('$fechaPRED' - '$fechaMETAR') / 60000 ' | bc ) # minutos
               tempPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .temperatura.valor' $fnamePREDIC.json)
               #tempBIAS=$(echo $tempPRED - $temp | bc )
