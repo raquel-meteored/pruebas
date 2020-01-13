@@ -7,4 +7,6 @@ do
   echo $lon $lat $alt $zoneinfo $name
   time ./genera-informe.sh "$name" "$zoneinfo" "$lon" "$lat" "$alt"
   mv prueba.pdf informe-$name.pdf
+
+  exit
 done < "$input"

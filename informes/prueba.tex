@@ -50,20 +50,23 @@
 \newenvironment{knitrout}{}{} % an empty environment to be redefined in TeX
 
 \usepackage{alltt}
+\usepackage{datetime}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
 \usepackage{graphicx}
 \usepackage{fancybox}
 \usepackage{fancyhdr} %pie de pagina y cabecera
 \usepackage[utf8]{inputenc} %solucion del problema de los acentos.
 \usepackage{multicol,pst-plot}
-\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\usepackage[left=1.5cm,right=1.5cm,top=2cm,bottom=2cm]{geometry}
 \usepackage{xcolor}
 \usepackage[many]{tcolorbox}
 \usepackage{svg}
+\usepackage{float}
+\usepackage{wrapfig}
 
 %%%%%%%%%  ESTILO DOC %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \definecolor{meteoblue}{RGB}{0,160,250}
-
-
 
 \tcbset{mystyle/.style={
   breakable,
@@ -85,69 +88,39 @@
 
 \newtcolorbox[auto counter,number within=section]{example}[1][]{
   mystyle,
-  title=AVISO,
+  title=NOTA,
   }
+
+
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \pagestyle{fancy}
-
-\fancyhead{}
-\fancyhead[L]{\tiny\bfseries The product}
-\fancyhead[R]{Alpred}
-\fancyhead[C]{\today}
-\fancyfoot{}
-\fancyfoot[LE,RO]{\thepage}
-\fancyfoot[LO,RE]{User Guide}
-\fancyfoot[C]{Other information}
+\fancyhead[L]{
+\textcolor{meteoblue}{
+\bfseries Alpred S.L. \\
+\small Servicio Metorológico a Empresas
+}
+}
+\fancyhead[R]{\includegraphics[width=2.5cm]{/home/raquel/repos/pruebas/informes/meteoredlogo.pdf}}
+\fancyhead[C]{ Previsi\'on para {Quito [-0.2300;281.4800]} \\
+\today}
+%\fancyfoot{}
+\fancyfoot[R]{Tel. 968485304 Fax. 968440315}
+\fancyfoot[L]{C/ Mayor, 46 \\
+30893 - Almendricos (Murcia)
+}
+\fancyfoot[C]{\today}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
 \begin{document}
-
-%%%%%%%%%%%CABECERA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%\pagestyle{plain}
-%\begin{flushright}
-%Almendricos, Espa\~na\\
-%\underline{Alpred, S.L}
-%\end{flushright}
-
-%\begin{flushleft}\vspace{-8mm}
-%\begin{figure}[h]
-%\includegraphics[width=0.2\textwidth]{/home/raquel/repos/pruebas/informes/meteoredlogo.pdf}
-%\end{figure}
-%\end{flushleft}
-
-%\vspace{-1mm}
+%\begin{center}\vspace{-1cm}
+%\textcolor{meteoblue}{\textbf{ \huge Predicci\'on para \textcolor{meteoblue}{result$nombre} }}\\
+%\date{\today}
+%\end{center}
 %\textcolor{meteoblue}{\rule{\linewidth}{1mm}}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-
-
-
-
-
-
-\begin{center}\vspace{-1cm}
-\textcolor{meteoblue}{\textbf{ \huge Prediccion para \textcolor{meteoblue}{Madrid [40.4200;356.3200]} }}\\
-\date{\today}
-\end{center}
-
-\textcolor{meteoblue}{\rule{\linewidth}{1mm}}
-
-\vspace{2cm}
-
-\vspace{2cm}
-\begin{example}
-La temperaturea maxima es 12.63 \\
-La temperaturea media es 3.5905417
-\end{example}
-
-\vspace{2cm}
-\begin{example}
-
-La temperaturea maxima es 12.63 \\
-La temperaturea media es 3.5905417
-\end{example}
-
-\pagestyle{plain}
 \begin{figure}
 \begin{knitrout}
 \definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
@@ -155,6 +128,7 @@ La temperaturea media es 3.5905417
 
 \end{knitrout}
 \end{figure}
+
 
 \begin{figure}
 \begin{knitrout}
@@ -173,16 +147,120 @@ La temperaturea media es 3.5905417
 \end{knitrout}
 \end{figure}
 
+\clearpage
+\newpage
 
-\begin{figure}
-\begin{knitrout}
-\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
-\includegraphics[width=\maxwidth]{figure/Figdir3-1} 
+\textbf{\textcolor{meteoblue}{INFORMACI\'ON}}\\
 
-\end{knitrout}
-\end{figure}
+Descripción de las variables meteorol\'ogicas.
+
+\begin{itemize}
+    \item \textbf{Temperatura m\'axima y m\'inima}: Es la temperatura máxima y mínima diaria que tiene luegar entre las 00 h y las 23:59 h.
+     Viene dada en grados centigrados ($^\circ$C)
+
+     \item \textbf{Punto de roc\'io}: Temperatura a la que el aire, a presi\'on y contenido de humedad constantes,
+     se satura (se condensa).  Su unidad de medida es la misma que la temperatura, es decir,
+     grados centigrados ($^\circ$C).
+
+     \item \textbf{Humedad relativa}: Se expresa en tanto por ciento.
+     Cuanto mayor es el porcentaje más cerca se está de la saturación (formación de pequeñas gotas de agua).
+
+    \item \textbf{Presi\'on atmosf\'erica}: Es la presión reducida a nivel del mar.
+    La presión disminuye exponencialmente con la altura (aproximadamente 1hPa por cada 8 m de ascenso).
+    La unidad del sistema internacional es el Pascal. También se expresa en milibares (1 mbar = 1 hPa). La presi\'on normal es de 1013,2 mbar.
+    Las altas presiones se asocian a anticiclones y las bajas presiones a borrascas. No siempre el mal tiempo va asociado a bajas temperaturas.
+
+    \item \textbf{Precipitaci\'on}: Cantidad de agua que precipita desde las nubes y llega al suelo en distintas formas: lluvia, nieve,  granizo
+    Viene definida por la suma total de la precipitaci\'on estratiforme
+    (tipo de precipitaci\'on asociada a la nubosidad a gran escala, generalmente asociada a sistemas frontales)
+    y la convectiva (precipitaci\'on relacionada con la nubosidad de crecimiento vertical, que en gran porcentaje da lugar a chubascos y tormentas).
+    La precipitaci\'on se mide en mil\'imetros de espesor acumulado en altura (mm),
+    que es equivalente a la medida de litros por metro cuadrado (l/m$^2$).\\
+
+    \item \textbf{Nubosidad}: Se mide en porcentaje (semiesfera).
+    Un valor de 0\% significa un cielo totalmente despejado duarnate un periodo de tiempo determinado.
+    Un cielo totalmente cubierto conllevaría un valor de 100\%.
+
+    \item \textbf{Radiaci\'on Solar}: Cantidad de energía solar que incide por unidad de área horizontal durante un periodo determinado (en este informe cada 3 h)
+    y se mide en Julios/m$^2$. NOTA: no se si es directa + indirecta.
+
+    \item \textbf{Direcci\'on del viento}: La dirección del viento nos indica de donde viene éste.
+     La dirección viene marcada por la rosa de los vientos; situando el norte a 0$^\circ$
+    y recorriendo en sentido horario se sitúa el este a  90$^\circ$, el sur a 180 $^\circ$ y el oeste a 270 $^\circ$.
+
+    \item \textbf{Velocidad del viento}: Magnitud cuya unidad mas común es el kilómetro por hora (km/h).
+
+\end{itemize}
 
 
+%NOTA: La fiabilidad de las predicciones disminuye a lo largo del tiempo. METEORED ofrece sus predicciones permanente en su web (www.tiempo.com)
+%IFS (Integrated Forecasting System)
+
+\vspace{1cm}
+\begin{example}
+La magnitud de cada variable se proporciona cada tres horas. Todas las variables tienen un valor cada tres horas,
+excepto la precipitaci\'on y la radiaci\'on solar que son acumulables en periodos de tres horas.\\
+%La temperaturea maxima es max(temperatura) \\
+%La temperaturea media es mean(temperatura)
+\end{example}
+
+\clearpage
+\newpage
+
+
+
+
+\begin{center}
+    \includegraphics[width=\textwidth]{./figure/Figresumen-1.pdf}
+\end{center}
+
+
+\begin{footnotesize}
+\textbf{\textcolor{meteoblue}{INFORMAC\'ION}}
+\begin{itemize}
+    \item \textbf{Presi\'on atmosf\'erica}: Está referida al nivel del mar (mbar).
+    \item \textbf{Precipitaci\'on}: estratiforme (tipo de precipitaci\'on asociada a sistemas frontales)
+            y la convectiva (nubosidad de crecimiento vertical), (mm).
+    \item \textbf{Nubosidad}: Se mide en porcentaje (semiesfera).
+    \item \textbf{Temperatura m\'axima y m\'inima}: Viene dada en grados centigrados ($^\circ$C)
+    \item \textbf{Punto de roc\'io}: Temperatura a la que el aire, a presi\'on y contenido de humedad constantes,
+            se satura (se condensa). ($^\circ$C).
+    \item \textbf{Direcci\'on del viento}: Esquema de direcci\'on del viento.
+    \item \textbf{Velocidad del viento}:(km/h).
+    \item \textbf{Radiaci\'on Solar}: Cantidad de energía acumulada en un periodo de tiempo y se mide en megajulios/m$^2$
+\end{itemize}
+\end{footnotesize}
+
+
+
+%\begin{figure}
+%<<Figdir3, echo=FALSE, fig.width=10, results = 'hide'>>=
+%dias=date(kk$dateok)
+%horas=hour(kk$dateok)
+%kk <- within(kk, {
+%dirwind <- -dir +90
+%x.end <- dias + 0.5*cos (dirwind/180 * pi)
+%y.end <- as.numeric(horas) + 0.5*sin (dirwind/180 * pi)
+%dia <- dias
+%hora <- horas
+%})
+
+%ggdir3 <- ggplot(kk, aes(x= dia, y=hora , fill=wind))+
+%            geom_raster() +
+%            scale_fill_distiller(palette="Blues",direction=1,breaks=seq(0,20,2),labels=seq(0,20,2),guide = "legend",name="Viento (m/s)")+
+%            geom_segment(aes(xend= dia, x= x.end, yend = hora, y = y.end), arrow = arrow(length = unit(0.2,"cm")))+
+ %          # geom_text(aes(label=rumbo, size=10), color="gold")+
+ %           scale_x_date(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
+ %           scale_y_continuous(breaks=seq(2,23,3))+
+ %         #  scale_y_continuous(trans = "reverse",breaks=seq(2,23,3))+
+ %           theme(legend.position = 'bottom', legend.direction = 'horizontal', legend.text = element_text(colour="black", size=10))+
+ %           guides(fill= guide_legend(nrow=1,barheight=0.4))+
+ %           labs(title="Dirección y velocidad del viento a 10 m",y="Hora",x="")
+%#axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()
+
+%ggdir3
+%@
+%\end{figure}
 
 
 %<<CreateTable1, warnings=FALSE ,echo=FALSE, results = 'asis'>>=
@@ -193,47 +271,6 @@ La temperaturea media es 3.5905417
 %	          floating = FALSE
 %		  )
 %@
-
-
-%\begin{figure}
-%<<Figprec, echo=FALSE,fig.width=10>>=
-%pnub <-ggplot(kk,aes(x=dateok)) +
-%        geom_area(aes(y=nub),fill="grey",alpha=0.5) +
-%        geom_line(aes(y=hum),col="#56B4E9",size=1.5)+
-%        scale_x_datetime(breaks = date_breaks("1 days"))+
-%        geom_text(aes(x=dateok,y=-8,label = nub), vjust = -1, size = 3, col="darkgrey", angle=90) +
-%        geom_text(aes(x=dateok,y=-2,label = hum), vjust = -1, size = 3, col="#56B4E9", angle=90) +
-%        labs(title="Nubosidad", subtitle="Humedad relativa (%)", x=" ", y=" ")+
-%        theme(plot.title=element_text(size=12, color="darkgrey", lineheight=-1.5),
-%                        axis.title.x = element_blank(), axis.text.x = element_blank(),
-%                        plot.subtitle = element_text(size=12,color="#56B4E9"))
-
-%ppresion <-ggplot(kk,aes(x=dateok)) +
-%            ylim(min(kk$presion)-5,max(kk$presion)+5)+
-%            geom_line(aes(y=presion),col="purple",size=1.2)+
-%            geom_point(aes(y=presion),col="purple",size=1.5)+
-%            geom_text(aes(x=dateok,y=presion, label=presion),col="purple",size=3, hjust=2)+
-%            scale_x_datetime(breaks = date_breaks("1 days"))+
-%            theme(plot.title=element_text(size=12, color="purple"))+
-%            labs(title="Presión (hPa)", x=" ", y="")+
-%            theme(axis.title.x = element_blank(), axis.text.x = element_blank())
-
-%pprecip <-ggplot(kk,aes(x=dateok)) +
-%        #geom_line(aes(y=precip),col="cyan3",size=1.5)+
-%        geom_bar(aes(y=precip),stat="identity" ,col="cyan3",fill="cyan3")+
-%        theme(plot.title=element_text(size=12, color="cyan3"))+
-%        scale_x_datetime(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
-%        geom_text(aes(x=dateok,y=-0.05,label = precip), vjust = -1, size = 3, col="cyan3", angle=90) +
-%        geom_text(aes(x=dateok[40], y=0.15, label ="Pecipitación (mm)"),col= "cyan3",size=4)+
-%        #geom_text(aes(x=dateok[4],y=-0.01,label = precip[4]), vjust = -1, size = 3, col="blue") +
-%        #geom_text(aes(x=dateok[40],y=-0.01,label = precip[40]), vjust = -1, size = 3, col="blue") +
-%        #labs(title="Precipitación (mm)", x=" ", y="",caption="Source: ECMWF")
-%        labs( x=" ", y="",caption="Source: ECMWF")
-
-%grid.newpage()
-%grid.draw(rbind(ggplotGrob(pnub), ggplotGrob(ppresion),ggplotGrob(pprecip) , size = "last"))
-%@
-%\end{figure}
 
 
 %\begin{figure}
@@ -262,19 +299,7 @@ La temperaturea media es 3.5905417
 %		  )
 %@
 
-\textcolor{meteoblue}{Informaci\'on}
-Descripción de las variables meteorol\'ogicas
-\begin{itemize}
-\item Presi\'on atmosf\'erica
-\item Precipitaci\'on. NOTA: PRECIPITACION HORARIA PRIMERAS 24H!
-\item Nubosidad
-\item Temperatura máxima y mínima
-\item Punto de rocío
-\item Direcci\'on del viento
-\item Velocidad del Viento
-\item \textbf{Radiaci\'on Solar}: Cantidad de energía acumulada en un periodo de tiempo y se mide en Julios/m$^2$
-\end{itemize}
-NOTA: La magnitud de cada variable se proporciona cada tres horas.
-IFS (Integrated Forecasting System)
+
+
 
 \end{document}
