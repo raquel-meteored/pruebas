@@ -42,6 +42,7 @@
   }
 
 <<LoadPackages, echo=FALSE, results = 'hide'>>=
+args = commandArgs(trailingOnly=TRUE)
 library("rjson")
 library("xtable") #tablas latex
 library("scales") #fechas
@@ -54,7 +55,7 @@ library(grid) #juntar figuras
 
 <<ReadFiles, echo=FALSE, results = 'hide' >>=
 #read json file
-result <- fromJSON(file = "/home/raquel/data/prueba.json")
+result <- fromJSON(file = args[2])
 #hola=fromJSON("/home/raquel/data/prueba.json")
 
 #length days
@@ -219,7 +220,7 @@ theme_set(theme_bw())
 }
 \fancyhead[R]{\includegraphics[width=2.5cm]{/home/raquel/repos/pruebas/informes/meteoredlogo.pdf}}
 \fancyhead[C]{ Previsi\'on para {\Sexpr{result$nombre}} \\
-\today}
+ Titular {\Sexpr{args[1]}}. Prohibida la distribuci\'on a terceros}
 %\fancyfoot{}
 \fancyfoot[R]{Tel. 968485304 Fax. 968440315}
 \fancyfoot[L]{C/ Mayor, 46 \\
@@ -303,17 +304,19 @@ grid.draw(rbind(ggplotGrob(pminmax), ggplotGrob(ptemp), size = "last"))
 \begin{figure}
 <<Figprecipitacion, echo=FALSE,fig.width=12 , results = 'hide' , warning=FALSE, message=FALSE >>=
 kkprec=subset(kk,kk$precip>0)
-escala=1.8/12
+scale_to_prec <- function(values) rescale(values, to = c(0.1, max(c(kk$precip,0.2))))
+prescale<-scale_to_prec(presion)
+prescale6h<-scale_to_prec(c(kk6h$presion,min(kk$presion),max(kk$presion)))[1:length(kk6h$presion)]
 
 pprec <-ggplot() +
        geom_bar(data=kk, aes(x=dateok, y=precip, fill="cprec"), col="cyan4", alpha=0.4, stat="identity") +
        geom_area(data=kk, aes(x=dateok,y=nub/10,  fill="cnub"), col="grey",  stat="identity", alpha=0.4)+
        geom_bar(data=kk, aes(x=dateok, y=precip, fill="cprec"), col="cyan4" , alpha=0.4, stat="identity") +
        geom_text(data=kkprec, aes(x=dateok,y=precip, label = precip), vjust = 0.5, hjust= -0.5, size = 3, col="cyan4", angle=90)+
-       geom_line(data=kk, aes(x=dateok, y=(presion-980)*escala, color="cpres"),size=0.8,stat="identity")+
-       geom_point(data=kk6h, aes(x=dateok, y=(presion-980)*escala), col="purple",size=1.2)+
-       geom_point(data=kk, aes(x=dateok, y=(presion-980)*escala), col="purple",size=1)+
-       geom_text(data=kk6h, aes(x=dateok, y=(presion-980)*escala, label=presion), col="purple", size=3, hjust=-0.2, vjust=0.1, angle=90)+
+       geom_line(data=kk, aes(x=dateok, y=scale_to_prec(presion), color="cpres"),size=0.8,stat="identity")+
+       geom_point(data=kk6h, aes(x=dateok, y=prescale6h), col="purple",size=1.2)+
+       geom_point(data=kk, aes(x=dateok, y=scale_to_prec(presion)), col="purple",size=1)+
+       geom_text(data=kk6h, aes(x=dateok, y=prescale6h, label=presion), col="purple", size=3, hjust=-0.2, vjust=0.1, angle=90)+
        scale_fill_manual(labels = c("Precipitacion [mm]", "Nubosidad [%]"), values = c(cprec="turquoise",cnub="grey"),
                          breaks=c("cprec","cnub"))+
        scale_color_manual(labels = "Presión atmosférica [hPa]",  values = c(cpres="purple")) +
@@ -353,7 +356,6 @@ scala=100000/max(kk$rad)
                       axis.line.y = element_line(color = "gold3"),
                       axis.text.y = element_text(color = "gold3"))
 
-
 grid.newpage()
 grid.draw(rbind(ggplotGrob(pprec), ggplotGrob(prad), size = "last"))
 @
@@ -364,11 +366,12 @@ grid.draw(rbind(ggplotGrob(pprec), ggplotGrob(prad), size = "last"))
 <<Figdir2, echo=FALSE, fig.width=10, results = 'hide', warning=FALSE, message=FALSE  >>=
 scalingdate=as.numeric(diff(range(kk$dateok)))*60*60
 scalingwind=diff(range(kk$wind))/12
-windbase=0
+windbase=-1
 kk6h <- within(kk6hb, {
 dirwind <- -dir +90
 x.end<- dateok +  scalingdate * cos (dirwind/180 * pi)
-y.end<-  scalingwind * sin (dirwind/180 * pi)
+y.end<- windbase +  scalingwind * sin (dirwind/180 * pi)
+x.end2<- dateok - scalingdate/6
 })
 
 ggdir2 <- ggplot() +
@@ -376,10 +379,11 @@ ggdir2 <- ggplot() +
          geom_line(data=kk, aes(x=dateok, y=wind, color="green3"),size=1) +
          geom_point(data=kk6h, aes(x=dateok, y=wind, col="green3"),size=1.2)+
          geom_point(data=kk6h, aes(x=dateok, y=wind, col="green3"),size=1.8)+
-         ylim(-5, max(kk$rachas)) +
+         ylim(-4, max(kk$rachas)) +
         # geom_segment(data=kk6h, aes(xend=2*dateok, x=x.end, yend = 0, y = y.end), col="cyan3", arrow = arrow(length = unit(0.3,"cm")))+
-         geom_segment(data=kk6h, aes(x=dateok, xend=x.end, y = windbase, yend = y.end), col="cyan3", arrow = arrow(length = unit(0.15,"cm"),ends="first", type = "closed"))+
-         geom_text(data=kk6hb, aes(y=-4,x=dateok,label=rumbo),size=2.5,fill="beige")+
+         geom_segment(data=kk6h, aes(x=dateok, xend=x.end, y = windbase, yend = y.end), col="deepskyblue1", arrow = arrow(length = unit(0.15,"cm"),ends="first", type = "closed"))+
+       #  geom_segment(data=kk6h, aes(xend=x.end, x=x.end2, yend = y.end, y = windbase), col="red", arrow = arrow(length = unit(0.15,"cm"),ends="first",type = "closed"))+
+         geom_text(data=kk6hb, aes(y=-3,x=dateok,label=rumbo),size=2.5)+
          geom_line(data=kk, aes(x=dateok, y = rachas, col="darkorange"),size=0.8, linetype = "dashed")+
          geom_point(data=kk6h, aes(x=dateok, y=rachas, col="darkorange"),size=1.8)+
          geom_point(data=kk, aes(x=dateok, y=rachas, col="darkorange"),size=1.2)+
@@ -465,15 +469,15 @@ a <- b*(tlim[1] - plim[1])/2
 ptemp <- ggplot() +
         geom_line(data=kk,aes(x=dateok,y=temp,color="red"),size=0.8)+
         geom_line(data=kk,aes(x=dateok,y=trocio,color="green3"),size=0.8)+
-        geom_line(data=kk,aes(x=dateok,y=a+ b*hum ,color="cyan3"),size=0.6, linetype = "dashed")+
-        scale_color_identity(breaks = c("red", "green3","cyan3"), labels = c("Temperatura", "Punto de rocio", "Humedad"),  guide = "legend")+
+        geom_line(data=kk,aes(x=dateok,y=a+ b*hum ,color="dodgerblue"),size=0.6, linetype = "dashed")+
+        scale_color_identity(breaks = c("red", "green3","dodgerblue"), labels = c("Temperatura", "Punto de rocio", "Humedad relativa"),  guide = "legend")+
         scale_x_datetime(name=" ", breaks = breakday, minor_breaks = breaksec, labels= scales::time_format("%a \n %d"), position="top")+
         scale_y_continuous(sec.axis = sec_axis(~ (. - a)/b , name = "Humedad relativa [%]", breaks=seq(0,100,20)))+
         theme(legend.position = "bottom", legend.title= element_blank(), axis.title.x = element_blank(), legend.box="horizontal",
                         panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "grey"),
                         panel.grid.minor = element_line(size = 0.25, linetype = 'dashed',  colour = "white"),
-                        axis.line.y.right = element_line(color = "cyan3"),
-                        axis.text.y.right = element_text(color = "cyan3"),
+                        axis.line.y.right = element_line(color = "dodgerblue"),
+                        axis.text.y.right = element_text(color = "dodgerblue"),
                         axis.line.y = element_line(color = "red"),
                         axis.text.y = element_text(color = "red"),
                         title =element_text(size=8), axis.title.y = element_text(size=8))+
@@ -503,10 +507,10 @@ scale_to_valuepres <- function(values) rescale(values, to = c(min(kk$presion), m
 kkprecpos=subset(kkdia, kkdia$precip > 0)
 
 pprec <-ggplot() +
-       geom_bar(data=kkdia, aes(x=dateok, y=precip, fill="lightblue"), alpha=0.5, col="deepskyblue4", stat="identity") +
+       geom_bar(data=kkdia, aes(x=dateok, y=precip, fill="turquoise"), alpha=0.5, col="cyan4", stat="identity") +
        geom_text(data=kkprecpos, aes(x=dateok,y=precip, label = precip), vjust = 0.5, hjust= -0.5, size = 2, col="deepskyblue4", angle=90)+
        geom_line(data=kk, aes(x=dateok, y=scale_to_valueprec(presion), color="purple"),size=0.8,stat="identity")+
-       scale_fill_manual('', labels = c("Precipitacion (mm)"), values = c("lightblue"="lightblue")) +
+       scale_fill_manual('', labels = c("Precipitacion (mm)"), values = c("turquoise"="turquoise")) +
        scale_color_manual('', labels = "Presión atmosférica (hPa)",  values = c("purple"="purple")) +
        scale_y_continuous(name="Precipitación (mm)", limits = c(0, round(max(kkdia$precip)+5)), breaks = seq(0, 50, by = 5),
                           sec.axis = sec_axis(~ scale_to_valuepres(.), name = "Presión atmosférica[hPa]"))+
@@ -516,8 +520,8 @@ pprec <-ggplot() +
               axis.title.x = element_blank(),
               panel.grid.major = element_line(size = 0.5, linetype = 'solid', colour = "grey"),
               panel.grid.minor = element_line(size = 0.25, linetype = 'dashed',  colour = "white"),
-              axis.line.y = element_line(color = "deepskyblue3"),
-              axis.text.y = element_text(color = "deepskyblue3"),
+              axis.line.y = element_line(color = "cyan4"),
+              axis.text.y = element_text(color = "cyan4"),
               axis.line.y.right = element_line(color = "purple"),
               axis.text.y.right = element_text(color = "purple"),
               title =element_text(size=8), axis.title.y = element_text(size=8))
