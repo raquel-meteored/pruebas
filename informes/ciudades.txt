@@ -1,5 +1,0 @@
--78.52 -0.23 2900 America/Guayaquil Quito
--3.68 40.42 674 Madrid/Europa Madrid
--105.22 40.04 1500 America/Denver Boulder
-141.36 43.06 10 Asia/Tokyo Sapporo
-143.96 -37.8 30 Australia/Melbourne Melbourne
