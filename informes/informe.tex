@@ -1,37 +1,305 @@
-\documentclass{article}
+%\documentclass[11pt,letterpaper]{article}
+\documentclass[[a4paper,landscape]{article}\usepackage[]{graphicx}\usepackage[]{color}
+% maxwidth is the original width if it is less than linewidth
+% otherwise use linewidth (to make sure the graphics do not exceed the margin)
+\makeatletter
+\def\maxwidth{ %
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+
+\definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}
+\newcommand{\hlnum}[1]{\textcolor[rgb]{0.686,0.059,0.569}{#1}}%
+\newcommand{\hlstr}[1]{\textcolor[rgb]{0.192,0.494,0.8}{#1}}%
+\newcommand{\hlcom}[1]{\textcolor[rgb]{0.678,0.584,0.686}{\textit{#1}}}%
+\newcommand{\hlopt}[1]{\textcolor[rgb]{0,0,0}{#1}}%
+\newcommand{\hlstd}[1]{\textcolor[rgb]{0.345,0.345,0.345}{#1}}%
+\newcommand{\hlkwa}[1]{\textcolor[rgb]{0.161,0.373,0.58}{\textbf{#1}}}%
+\newcommand{\hlkwb}[1]{\textcolor[rgb]{0.69,0.353,0.396}{#1}}%
+\newcommand{\hlkwc}[1]{\textcolor[rgb]{0.333,0.667,0.333}{#1}}%
+\newcommand{\hlkwd}[1]{\textcolor[rgb]{0.737,0.353,0.396}{\textbf{#1}}}%
+\let\hlipl\hlkwb
+
+\usepackage{framed}
+\makeatletter
+\newenvironment{kframe}{%
+ \def\at@end@of@kframe{}%
+ \ifinner\ifhmode%
+  \def\at@end@of@kframe{\end{minipage}}%
+  \begin{minipage}{\columnwidth}%
+ \fi\fi%
+ \def\FrameCommand##1{\hskip\@totalleftmargin \hskip-\fboxsep
+ \colorbox{shadecolor}{##1}\hskip-\fboxsep
+     % There is no \\@totalrightmargin, so:
+     \hskip-\linewidth \hskip-\@totalleftmargin \hskip\columnwidth}%
+ \MakeFramed {\advance\hsize-\width
+   \@totalleftmargin\z@ \linewidth\hsize
+   \@setminipage}}%
+ {\par\unskip\endMakeFramed%
+ \at@end@of@kframe}
+\makeatother
+
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\newenvironment{knitrout}{}{} % an empty environment to be redefined in TeX
+
+\usepackage{alltt}
+\usepackage{datetime}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
 \usepackage{graphicx}
-%Title
-\title{PREVISION PARA ALMENDRICOS}
-\date{\today}
-\author{Meteored}
+\usepackage{fancybox}
+\usepackage{fancyhdr} %pie de pagina y cabecera
+\usepackage[utf8]{inputenc} %solucion del problema de los acentos.
+\usepackage{multicol,pst-plot}
+\usepackage[left=1.5cm,right=1.5cm,top=2cm,bottom=2cm]{geometry}
+\usepackage{xcolor}
+\usepackage[many]{tcolorbox}
+\usepackage{svg}
+\usepackage{float}
+\usepackage{wrapfig}
 
+%%%%%%%%%  ESTILO DOC %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\definecolor{meteoblue}{RGB}{0,160,250}
+
+\tcbset{mystyle/.style={
+  breakable,
+  enhanced,
+  outer arc=0pt,
+  arc=0pt,
+  colframe=meteoblue,
+  colback=meteoblue!20,
+  attach boxed title to top left,
+  boxed title style={
+    colback=meteoblue,
+    outer arc=0pt,
+    arc=0pt,
+    },
+  title=Example~\thetcbcounter,
+  fonttitle=\sffamily
+  }
+}
+
+\newtcolorbox[auto counter,number within=section]{example}[1][]{
+  mystyle,
+  title=NOTA,
+  }
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\pagestyle{fancy}
+\fancyhead[L]{
+\textcolor{meteoblue}{
+\bfseries Alpred S.L. \\
+\small Servicio Metorológico a Empresas
+}
+}
+\fancyhead[R]{\includegraphics[width=2.5cm]{/home/raquel/repos/pruebas/informes/meteoredlogo.pdf}}
+\fancyhead[C]{ Previsi\'on para {Melbourne [-37.8000;143.9600]} \\
+ Titular {Raquel}. Prohibida la distribuci\'on a terceros}
+%\fancyfoot{}
+\fancyfoot[R]{Tel. 968485304 Fax. 968440315}
+\fancyfoot[L]{C/ Mayor, 46 \\
+30893 - Almendricos (Murcia)
+}
+\fancyfoot[C]{\today}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
 \begin{document}
+%\begin{center}\vspace{-1cm}
+%\textcolor{meteoblue}{\textbf{ \huge Predicci\'on para \textcolor{meteoblue}{result$nombre} }}\\
+%\date{\today}
+%\end{center}
+%\textcolor{meteoblue}{\rule{\linewidth}{1mm}}
 
-\maketitle % Create cover page
-%PREVISION PARA ALMENDRICOS
+\begin{figure}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+\includegraphics[width=\maxwidth]{figure/Figtemperatura-1} 
 
-\begin{figure}[htb]
-\begin{center}
-   \includegraphics[scale=0.4]{presion.png}
-   \includegraphics[scale=0.4]{precipitacion.png}
-   \includegraphics[scale=0.4]{nubosidad.png}
-\end{center}
+\end{knitrout}
 \end{figure}
 
 
-\begin{figure}[htb]
-\begin{center}
-   \includegraphics[scale=0.4]{temperatura.png}
-   \includegraphics[scale=0.4]{rocio.png}
-   \includegraphics[scale=0.4]{humedad.png}
-\end{center}
+\begin{figure}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+\includegraphics[width=\maxwidth]{figure/Figprecipitacion-1} 
+
+\end{knitrout}
 \end{figure}
 
-\begin{figure}[htb]
-\begin{center}
-   \includegraphics[scale=0.8]{viento.png}
-\end{center}
+
+\begin{figure}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+\includegraphics[width=\maxwidth]{figure/Figdir2-1} 
+
+\end{knitrout}
 \end{figure}
+
+\clearpage
+\newpage
+
+\textbf{\textcolor{meteoblue}{INFORMACI\'ON}}\\
+
+Descripción de las variables meteorol\'ogicas.
+
+\begin{itemize}
+    \item \textbf{Temperatura m\'axima y m\'inima}: Es la temperatura máxima y mínima diaria que tiene luegar entre las 00 h y las 23:59 h.
+     Viene dada en grados centigrados ($^\circ$C)
+
+     \item \textbf{Punto de roc\'io}: Temperatura a la que el aire, a presi\'on y contenido de humedad constantes,
+     se satura (se condensa).  Su unidad de medida es la misma que la temperatura, es decir,
+     grados centigrados ($^\circ$C).
+
+     \item \textbf{Humedad relativa}: Se expresa en tanto por ciento.
+     Cuanto mayor es el porcentaje más cerca se está de la saturación (formación de pequeñas gotas de agua).
+
+    \item \textbf{Presi\'on atmosf\'erica}: Es la presión reducida a nivel del mar.
+    La presión disminuye exponencialmente con la altura (aproximadamente 1hPa por cada 8 m de ascenso).
+    La unidad del sistema internacional es el Pascal. También se expresa en milibares (1 mbar = 1 hPa). La presi\'on normal es de 1013,2 mbar.
+    Las altas presiones se asocian a anticiclones y las bajas presiones a borrascas. No siempre el mal tiempo va asociado a bajas temperaturas.
+
+    \item \textbf{Precipitaci\'on}: Cantidad de agua que precipita desde las nubes y llega al suelo en distintas formas: lluvia, nieve,  granizo
+    Viene definida por la suma total de la precipitaci\'on estratiforme
+    (tipo de precipitaci\'on asociada a la nubosidad a gran escala, generalmente asociada a sistemas frontales)
+    y la convectiva (precipitaci\'on relacionada con la nubosidad de crecimiento vertical, que en gran porcentaje da lugar a chubascos y tormentas).
+    La precipitaci\'on se mide en mil\'imetros de espesor acumulado en altura (mm),
+    que es equivalente a la medida de litros por metro cuadrado (l/m$^2$).\\
+
+    \item \textbf{Nubosidad}: Se mide en porcentaje (semiesfera).
+    Un valor de 0\% significa un cielo totalmente despejado duarnate un periodo de tiempo determinado.
+    Un cielo totalmente cubierto conllevaría un valor de 100\%.
+
+    \item \textbf{Radiaci\'on Solar}: Cantidad de energía solar que incide por unidad de área horizontal durante un periodo determinado (en este informe cada 3 h)
+    y se mide en Julios/m$^2$. NOTA: no se si es directa + indirecta.
+
+    \item \textbf{Direcci\'on del viento}: La dirección del viento nos indica de donde viene éste.
+     La dirección viene marcada por la rosa de los vientos; situando el norte a 0$^\circ$
+    y recorriendo en sentido horario se sitúa el este a  90$^\circ$, el sur a 180 $^\circ$ y el oeste a 270 $^\circ$.
+
+    \item \textbf{Velocidad del viento}: Magnitud cuya unidad mas común es el kilómetro por hora (km/h).
+
+\end{itemize}
+
+
+%NOTA: La fiabilidad de las predicciones disminuye a lo largo del tiempo. METEORED ofrece sus predicciones permanente en su web (www.tiempo.com)
+%IFS (Integrated Forecasting System)
+
+\vspace{1cm}
+\begin{example}
+La magnitud de cada variable se proporciona cada tres horas. Todas las variables tienen un valor cada tres horas,
+excepto la precipitaci\'on y la radiaci\'on solar que son acumulables en periodos de tres horas.\\
+%La temperaturea maxima es max(temperatura) \\
+%La temperaturea media es mean(temperatura)
+\end{example}
+
+\clearpage
+\newpage
+
+
+
+
+\begin{center}
+    \includegraphics[width=\textwidth]{./figure/Figresumen-1.pdf}
+\end{center}
+
+
+\begin{footnotesize}
+\textbf{\textcolor{meteoblue}{INFORMAC\'ION}}
+\begin{itemize}
+    \item \textbf{Presi\'on atmosf\'erica}: Está referida al nivel del mar (mbar).
+    \item \textbf{Precipitaci\'on}: estratiforme (tipo de precipitaci\'on asociada a sistemas frontales)
+            y la convectiva (nubosidad de crecimiento vertical), (mm).
+    \item \textbf{Nubosidad}: Se mide en porcentaje (semiesfera).
+    \item \textbf{Temperatura m\'axima y m\'inima}: Viene dada en grados centigrados ($^\circ$C)
+    \item \textbf{Punto de roc\'io}: Temperatura a la que el aire, a presi\'on y contenido de humedad constantes,
+            se satura (se condensa). ($^\circ$C).
+    \item \textbf{Direcci\'on del viento}: Esquema de direcci\'on del viento.
+    \item \textbf{Velocidad del viento}:(km/h).
+    \item \textbf{Radiaci\'on Solar}: Cantidad de energía acumulada en un periodo de tiempo y se mide en megajulios/m$^2$
+\end{itemize}
+\end{footnotesize}
+
+
+
+%\begin{figure}
+%<<Figdir3, echo=FALSE, fig.width=10, results = 'hide'>>=
+%dias=date(kk$dateok)
+%horas=hour(kk$dateok)
+%kk <- within(kk, {
+%dirwind <- -dir +90
+%x.end <- dias + 0.5*cos (dirwind/180 * pi)
+%y.end <- as.numeric(horas) + 0.5*sin (dirwind/180 * pi)
+%dia <- dias
+%hora <- horas
+%})
+
+%ggdir3 <- ggplot(kk, aes(x= dia, y=hora , fill=wind))+
+%            geom_raster() +
+%            scale_fill_distiller(palette="Blues",direction=1,breaks=seq(0,20,2),labels=seq(0,20,2),guide = "legend",name="Viento (m/s)")+
+%            geom_segment(aes(xend= dia, x= x.end, yend = hora, y = y.end), arrow = arrow(length = unit(0.2,"cm")))+
+ %          # geom_text(aes(label=rumbo, size=10), color="gold")+
+ %           scale_x_date(breaks = date_breaks("1 days"),date_labels = "%b \n %a\n %d")+
+ %           scale_y_continuous(breaks=seq(2,23,3))+
+ %         #  scale_y_continuous(trans = "reverse",breaks=seq(2,23,3))+
+ %           theme(legend.position = 'bottom', legend.direction = 'horizontal', legend.text = element_text(colour="black", size=10))+
+ %           guides(fill= guide_legend(nrow=1,barheight=0.4))+
+ %           labs(title="Dirección y velocidad del viento a 10 m",y="Hora",x="")
+%#axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()
+
+%ggdir3
+%@
+%\end{figure}
+
+
+%<<CreateTable1, warnings=FALSE ,echo=FALSE, results = 'asis'>>=
+%kktabla=cbind(kk$dateok,kk$presion,kk$nub,kk$hum,kk$precip)
+%table_latex <- xtable(kktabla,caption = "cosas")
+%print(table_latex,
+%   latex.environments =  c("scriptsize", "center", "widestuff"),
+%	          floating = FALSE
+%		  )
+%@
+
+
+%\begin{figure}
+%<<Figdir, echo=FALSE>>=
+%tstep=seq(1,16)
+%par(mfrow=c(4,4))
+%for (i in tstep) {
+%    plot(c(0,kk6h$u[i]),c(0,kk6h$v[i]),xlim=c(-1,1),ylim=c(-1,1),type="l", ylab="", xlab="",xaxt= "n", yaxt="n", main=paste(kk6h$dir[i]," H=", kk6h$date[i] ,sep=""),col="red")
+%    axis(2, at=c(-1,0,1),labels=c("SW","W","NW"), col.axis="red", las=2)
+%    axis(4, at=c(-1,0,1),labels=c("SE","E","NE"), col.axis="red", las=2)
+%    axis(1, at=c(0),labels=c("S"), col.axis="red", las=2)
+%    axis(3, at=c(0),labels=c("N"), col.axis="red", las=2)
+%}
+%@
+%\end{figure}
+
+\vspace{5cm}
+\newpage
+
+%<<CreateTable,  warnings=FALSE, echo=FALSE, results = 'asis'>>=
+%kk=cbind(fecha[t3h], presion[t3h],temperatura[t3h], dir[t3h])
+%table_latex <- xtable(kk6h,caption = "cosas")
+%print(table_latex,
+%   latex.environments =  c("scriptsize", "center", "widestuff"),
+%	          floating = FALSE
+%		  )
+%@
+
+
 
 
 \end{document}
