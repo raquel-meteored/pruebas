@@ -1,12 +1,15 @@
 #!/bin/bash
 ####################################################################################
 ### Validación de predicciones meteored con METARs
-### 1. Descarga METARs info y las predicciones del ECMWF en la localidad de los METARs
-### 2. Compara temperaturas
-### 3. Pinta series con R y mapa de sesgo
-### RLP 11-2019
+#   1. Descarga json con METARs info
+#   2. Descarga json con predicciones METEORED del ECMWF en la localidad de los METARs
+#   3. Datos en bruto del ECMWF en .txt descargados con get-info-ECMWF.sh
+#   4. Compara temperaturas
+#   5. Pinta series y mapa de sesgo con R
+### RLP 11-2019. Ultima actualización: 01-2020
 # Raquel Lorente Plazas <raquel@meteored.com>
 ###################################################################################
+
 # Nombre del script.
 scriptName=$(basename "$0")
 
@@ -27,12 +30,7 @@ DIR_PLOTS=$DIR_DATA/PLOTS
 mkdir -p ${DIR_DATA} ${DIR_PLOTS}
 
 #Comprobación de que existen los Ficheros
-#filegeonameID=${DIR_BASE}/geonameId-icao-correspondencia.txt #uso este fichero para que gonameID siempre correspoda al mismo METAR
-filemetarID=meteoflight_reports.php #se descarga
-#if [[ ! -e $filegeonameID ]]; then
-#	echo "$(datePID): $filegeonameID no exite"
-#  exit 1;
-#fi
+filemetarID=/home/cep/METAR/meteoflight_reports.php #se descarga
 if [[ -e ${filemetarID} ]] ; then
   rm -f $filemetarID
 fi
@@ -40,6 +38,7 @@ fi
 #Comprobación de que existen los scripts
 scriptR1=${DIR_BASE}/plot-PREDICvsMETAR.R
 scriptR2=${DIR_BASE}/mapa-errores-METAR.R
+#scriptECMWF=${DIR_BASE}/get-info-ECMWF.sh
 
 if [[ ! -e $scriptR1 ]]; then
 	echo "$(datePID): $scriptR1 no exite"
@@ -49,9 +48,12 @@ if [[ ! -e $scriptR2 ]]; then
 	echo "$(datePID): $scriptR2 no exite"
   exit 1;
 fi
+#if [[ ! -e $scriptECMWF ]]; then
+#	echo "$(datePID): $scriptECMWF no exite"
+#  exit 1;
+#fi
 
 
-#TODO ver si lockFile funciona
 # Definición de fichero de bloqueo y de finalización.
 # Se comprueba si se está trabajando ya.
 lockFile=${DIR_DATA}/${scriptName}_${dateDOWNLOAD}.lock
@@ -75,7 +77,7 @@ TIMEOUT=60 #máximo número de segundos intentando conectarse
 echo "$(datePID): Inicia descarga de $filemetarID"
 curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php -o $filemetarID
 echo "$(datePID): Fin descarga de $filemetarID"
-metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep 'LE[A-Z][A-Z]' | cut -c2-5)
+metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep '[L,E][A-Z][A-Z][A-Z]' | cut -c2-5)
 
 #Truco de Juan para asegurarme que tengo t-odos los json descargados adecaudamente
 ficherosdescargados=0
@@ -87,7 +89,7 @@ do
     fnameMETAR=${DIR_DATA}/METAR-$icao-${dateDOWNLOAD}
     fnamePREDIC=${DIR_DATA}/PREDIC-$icao-${dateDOWNLOAD}
     fnameVALIDA=${DIR_DATA}/VALIDA-$icao-${weekDOWNLOAD}
-    fnameECMWF=${DIR_DATA}/ECMWF-$icao-${weekDOWNLOAD}
+    fnameECMWF=${DIR_DATA}/ECMWF-$icao-${weekDOWNLOAD} #creado con get-info-ECMWF.sh
 
     if [ ! -e "${fnamePREDIC}".json ]
     then
@@ -95,8 +97,6 @@ do
       ##Descarga METARs info (24h data) del json file
       curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php?ICAO=$icao -o "$fnameMETAR".json
       ##Descarga forecast info del json file en la localidad del METAR
-
-      #geonameId=$(cat $filegeonameID | grep "$icao" | awk '{print $2}')
       lat=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lat] | sort []')
       lon=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lon] | sort []')
       alt=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .alt] | sort []')
@@ -107,7 +107,7 @@ do
       then
         #TODO no estoy usando fecha START ni fechaLEAD
 	      ## Uso la fecha inicial del fichero para hacerme una idea del LEAD time
-        fechaSTART=$(jq '.dias[0].utime.start' $fnamePREDIC.json )
+        #fechaSTART=$(jq '.dias[0].utime.start' $fnamePREDIC.json )
         #fechaSTARTok=$(date --date=@$(echo $fechaSTART/1000 | bc) '+%Y%m%d%H%M')
 
 	      ##Para los METAR puede que haya pasos temporales sin datos de temp (con o sin NIL)
@@ -118,13 +118,13 @@ do
           then
             fechaMETAR=$idate
             fechaMETARok=$(date --date=@$(echo $fechaMETAR/1000 | bc) '+%Y%m%d%H%M')
-            #echo $fechaMETARok
+            #fechaLEAD=$(echo '('$fechaMETAR' - '$fechaSTART') / 3600000' | bc ) #horas entre inicio de predic y METAR
+
             #Busco la predicción más cercana a la fecha del METAR
             fechaUP=$( echo $idate + 1800000 | bc)
             fechaDW=$( echo $idate - 1800000 | bc)
             fechaPRED=$(jq '.dias[].horas[] | select (.utime <= '$fechaUP' and .utime > '$fechaDW') | .utime' $fnamePREDIC.json)
 
-            #fechaLEAD=$(echo '('$fechaMETAR' - '$fechaSTART') / 3600000' | bc ) #horas entre inicio de predic y METAR
             if [ ! -z "$fechaPRED" ] #puede ocurrir que la fecha del METAR no esté en el json de la predicc
             then
               fechaPREDok=$(date --date=@$(echo $fechaPRED/1000 | bc) '+%Y%m%d%H%M')
@@ -140,7 +140,7 @@ do
                 rm kkrmdate
               fi
 
-              #Cogemos dato de ECMWF
+              #Cogemos dato del ECMWF
               #TODO pasar awk a regular expression
               #tempECMWFp=$temp
               tempECMWFb=$(cat $fnameECMWF.txt | grep $fechaPREDok | awk '{print $2}')
@@ -171,10 +171,10 @@ do
         if [ ! -e $filein ];
         then
           echo "$(datePID): No encontrado $filein"
+          #No me salgo porque en otro paso temporal puede crearse
         else
           nrow=$(cat $filein | wc -l)
           ncol=$(awk '{print NF}' $filein | sort -nu) # -u remove repeat text/lines
-          # shellcheck disable=SC1072
           if [ $ncol -eq 6 ] && [ $nrow -gt 1 ];
           then
             Rscript --vanilla ${DIR_BASE}/plot-PREDICvsMETAR.R $filein $plotout $icao $lon $lat $fileout
@@ -213,5 +213,6 @@ done
 #convert $DIR_DATA/PLOTS/*$weekDOWNLOAD.png $DIR_DATA/PLOTS/JOINED-T-PREDIC-METAR-$weekDOWNLOAD.png
 #FIXME cuando vea que funciona, directamente borrar lo que hay en basura
 mv $DIR_DATA/*.json ${DIR_DATA}/basura
+#$DIR_DATA/*.txt
 rm -f "${lockFile}"
 echo 'fin script predicciones'

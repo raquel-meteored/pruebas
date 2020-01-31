@@ -24,12 +24,9 @@ path_software="/usr/local/bin/grib_get"
 # Función que muestra la ayuda.
 function showUsage() {
   echo
-  echo "Uso: ${scriptName} 00|12 [-d|--date AAAAMMDD] [-p|--prefix A1|T1] [-h|--help]"
-  echo
-  echo "                       00|12 - Hora de inicio de la pasada."
-  echo "        [-d|--date AAAAMMDD] - Fecha de inicio de la pasada."
-  echo "         [-p|--prefix A1|T1] - Si se especifica, se buscarán gribs que comiencen por A1 o T1. Por defecto A1."
-  echo "                 [-h|--help] - Se muestra esta ayuda."
+  echo "Uso: ${scriptName} 00|12  [-h|--help]"
+  echo "        00|12 - Hora de inicio de la pasada."
+  echo "        [-h|--help] - Se muestra esta ayuda."
   echo
 }
 
@@ -51,7 +48,7 @@ fi
 #Comprobación de que existen los directorios
 DIR_BASE=/home/cep/METAR
 DIR_DATA=$DIR_BASE/data/VALIDACION
-mkdir -p ${DIR_DATA}
+mkdir -p ${DIR_DATA} ${DIR_BASE}
 
 # Valores por defecto.
 cc="A1"
@@ -62,9 +59,8 @@ weekDOWNLOAD=$(date '+%W')
 LIM=350 #maxímo número de segundos de descarga
 TIMEOUT=60 #máximo número de segundos intentando conectarse
 
-
 # Definición de fichero de bloqueo y comprobación de estado.
-lockFile="/home/cep/${scriptName}_${DATE}${RUN}.lock"
+lockFile="/home/cep/METAR/${scriptName}_${DATE}${RUN}.lock"
 if [[ -e ${lockFile} ]] ; then
   if [[ $(stat -c %Y ${lockFile}) -lt $(date -u +%s --date="30 minutes ago") ]] ; then
     touch ${lockFile} # Problemas: el fichero ${lock} es muy antiguo.
@@ -76,11 +72,11 @@ else
 fi
 
 ###Descarga METARs info: lon lat alt (LE españoles)
-filemetarID=meteoflight_reports.php #se descarga
+filemetarID=/home/cep/METAR/meteoflight_reports.php #se descarga
 echo "$(datePID): Inicia descarga de $filemetarID"
 curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php -o $filemetarID
 echo "$(datePID): Fin descarga de $filemetarID"
-metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep 'LE[A-Z][A-Z]' | cut -c2-5)
+metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep '[L,E][A-Z][A-Z][A-Z]' | cut -c2-5)
 
 #Sólo cojo las primeras 24 h
 proy_HRES=$(seq --format %03g 0 3 23)
@@ -101,7 +97,7 @@ for ((i=0; i<${#proy[@]}; i++)) ; do
     if [[ -f ${grib} ]]; then
       for icao in $metarID; do
         touch ${lockFile} &&
-        fnameECMWF=$DIR_DATA/ECMWF-$icao-$weekDOWNLOAD.txt
+        fnameECMWF=${DIR_DATA}/ECMWF-$icao-$weekDOWNLOAD.txt
         echo "$(datePID) extrayendo info de ${grib} para $icao"
 
         lat=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lat] | sort []')
@@ -115,10 +111,10 @@ for ((i=0; i<${#proy[@]}; i++)) ; do
         #sobreescibiendo en las fechas ya exisistentes
         if [ -e $fnameECMWF ]
         then
+          #awk '{if ($1=='$fechaECMWF') print $1,$tempC}' $fnameECMWF
           mv  $fnameECMWF kkrmdate
           cat kkrmdate | grep -v $fechaECMWF  >  $fnameECMWF
           rm kkrmdate
-
         fi
         echo $fechaECMWF $tempC >> $fnameECMWF
       done # end icao loop
@@ -128,5 +124,14 @@ for ((i=0; i<${#proy[@]}; i++)) ; do
       exit
     fi
 done #end grib files loop
+
+#TODO esto no funcionará la última semana del año
+dayofweek=$(date '+%u')
+
+if [[ ${dayofweek} -gt 6 ]]; then
+  weeknext=$(echo ${weekDOWNLOAD} + 1 | bc)
+  cp $fnameECMWF ${DIR_DATA}/ECMWF-$icao-$weeknext.txt
+fi
+
 echo "Fin descarga ecmwf data"
 rm ${lockFile}
