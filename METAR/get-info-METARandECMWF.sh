@@ -197,7 +197,7 @@ do
   #warning: si se cambian los parámetros de entradas modificar R consecuentemente
   filein=${DIR_DATA}/MAPA-T-PREDIC-METAR-$weekDOWNLOAD.txt
   plotout=${DIR_PLOTS}/MAPA-T-PREDIC-METAR-$weekDOWNLOAD.pdf
-  Rscript --vanilla $scriptR2 "$filein"  $plotout
+  Rscript --vanilla $scriptR2 "$filein" $plotout
 
   ficherosdescargados=1
   for icao in $metarID; do
