@@ -108,72 +108,83 @@ fi
 echo "$(datePID): Inicia descarga de METAR"
 curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php -o $filemetarID
 ##Descarga METAR info
-curl -s -m $LIM --connect-timeout $TIMEOUT "http://www.ogimet.com/cgi-bin/getmetar?begin=${fechaini}00&end=${fechafin}00" -o $fnameMETAR
+curl -s -m $LIM --connect-timeout $TIMEOUT "http://www.ogimet.com/cgi-bin/getmetar?icao=LE&begin=${fechaini}00&end=${fechafin}00" -o $fnameMETAR
+metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep '[L][E][A-Z][A-Z]' | cut -c2-5)
 echo "$(datePID): Fin descarga de METAR"
 
-metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep '[L][E][A-Z][A-Z]' | cut -c2-5)
 
-echo $metarID > ppMETARs
-#Truco de Juan para asegurarme que tengo t-odos los json descargados adecaudamente
 
+#Sólo cojo las primeras 12 h
+proy_HRES=$(seq --format %03g 0 3 13)
+proy=(${proy_HRES[@]})
 #loop sobre los METARs para descargar la predicción y comparar
 for icao in $metarID; do
-    fnamePREDIC=${DIR_DATA}/PREDIC-$icao-$fechaini-$fechafin
-    fnameVALIDA=${DIR_DATA}/VALIDA-$icao-$fechaini-$fechafin
-    fnameECMWF=${DIR_DATA}/ECMWF-$icao-${weekDOWNLOAD} #creado con get-info-ECMWF.sh
+  fnamePREDIC=${DIR_DATA}/PREDIC-$icao-$fechaini-$fechafin
+  fnameVALIDA=${DIR_DATA}/VALIDA-$icao-$fechaini-$fechafin
+  fnameECMWF=${DIR_DATA}/ECMWF-$icao-$fechaini-$fechafin #creado con get-info-ECMWF.sh
 
-      echo "$(datePID): Ini descarga de json"
-      ##Descarga forecast info del json file en la localidad del METAR
-      lat=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lat] | sort []')
-      lon=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lon] | sort []')
-      alt=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .alt] | sort []')
-      curl -s -m $LIM --connect-timeout $TIMEOUT 'http://aguila.ogimet.com/cgi-bin/otf12?latitud='$lat'&longitud='$lon'&altitud='$alt'&zonaHoraria=etc/UTC&name='$icao'' -o $fnamePREDIC.json
-      echo "$(datePID): Fin descarga de json"
-      cat $fnameMETAR | grep "${icao}" | grep '[ M][0-9][0-9]/[M]*[0-9][0-9]' > kk$icao
-      tempSUMBIAS=0
-      tempSUMRMSE=0
-      while IFS=, read -r metar YYYY MM DD HH mm infoMETAR
-      do
-        fechaMETAR=$(date -d "${YYYY}/${MM}/${DD}H${HH}:${mm}" "+%s")
-        fechaMETARok=$(echo "${YYYY}${MM}${DD}${HH}${mm}")
-
-        #Busco la predicción más cercana a la fecha del METAR
-        fechaUP=$( echo "${fechaMETAR}"*1000 + 1800000 | bc)
-        fechaDW=$( echo "${fechaMETAR}"*1000 - 1800000 | bc)
-        fechaPRED=$(jq '.dias[].horas[] | select (.utime <= '$fechaUP' and .utime > '$fechaDW') | .utime' $fnamePREDIC.json)
-        if [ ! -z "$fechaPRED" ] #puede ocurrir que la fecha del METAR no esté en el json de la predicc
-        then
-          tempPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .temperatura.valor' $fnamePREDIC.json)
-          #tempMETAR=$(echo $infoMETAR | grep "${icao}" | grep -o '[ M][0-9][0-9]/[M]*[0-9][0-9]' | tr "M" "-" | cut -c1-3)
-          tempMETAR=$(echo $infoMETAR | grep "${metar}" | grep -o '[ M][0-9][0-9]/[M]*[0-9][0-9]'| tr "M" "-" | tr "/" " " | awk '{print $1}')
-          #mmddhhii=
-          #grib=/home/ecmwf/${cc}${S}${MMDDHHII}${mmddhhii}1
-          #if [ -e $grib ]
-          #then
-          #  else
-          #    tempECMWF='NAN'
-          #fi
-          #Nos aseguramos que los datos se comparan con la última pasada
-          if [ -e $fnameVALIDA.txt ]
-          then
-            mv  $fnameVALIDA.txt kkrmdate
-            cat kkrmdate | awk 'NF==8' | grep -v $fechaMETAR  >  $fnameVALIDA.txt
-            rm kkrmdate
+  echo "$(datePID): Ini descarga de json"
+  ##Descarga forecast info del json file en la localidad del METAR
+  lat=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lat] | sort []')
+  lon=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .lon] | sort []')
+  alt=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .alt] | sort []')
+  curl -s -m $LIM --connect-timeout $TIMEOUT 'http://aguila.ogimet.com/cgi-bin/otf12?latitud='$lat'&longitud='$lon'&altitud='$alt'&zonaHoraria=etc/UTC&name='$icao'' -o $fnamePREDIC.json
+  echo "$(datePID): Fin descarga de json"
+  tempSUMBIAS=0
+  tempSUMRMSE=0
+  for ((i=0; i<${#proy[@]}; i++)) ; do
+    # Caso de fichero de análisis.
+    if [[ $(( 10#${proy[$i]} )) -eq 0 ]] ; then
+      mmddhhii="$(date -u +%m%d%H%M --date="${DATE} ${RUN} 1 minute")"
+     # Resto de casos.
+    else
+      mmddhhii="$(date -u +%m%d%H%M --date="${DATE} ${RUN} $(( 10#${proy[$i]} )) hours")"
+    fi
+    #Grib con datos del ECMWF en bruto
+    grib=/home/ecmwf/${cc}${S}${MMDDHHII}${mmddhhii}1
+    if [[ -f ${grib} ]]; then
+        echo "$(datePID) extrayendo info de ${grib} para $icao"
+        #Sacamos el punto más cercano
+        temp2t=($(${path_software} -l ${lat},${lon},1 -w shortName=2t -p date,step ${grib}))
+        tempECMWF=$(echo ${temp2t[2]} - 273.15 | bc )
+        paso=$(echo   "${temp2t[1]}" +  "${RUN}" | bc)
+        fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "${paso}"*100 | bc)
+        YYYY=$(echo $fechaECMWF | cut -c1-4)
+        MM=$(echo $fechaECMWF | cut -c5-6)
+        DD=$(echo $fechaECMWF | cut -c7-8)
+        HH=$(echo $fechaECMWF | cut -c9-10)
+        mm=$(echo $fechaECMWF | cut -c11-12)
+        fechaPRED=$( echo $(date -d "${YYYY}/${MM}/${DD}H${HH}:${mm}" "+%s")*1000 | bc )
+        tempPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .temperatura.valor' $fnamePREDIC.json)
+        cat "$fnameMETAR" | tr "," " "|awk '{if ($1=="'$icao'" && $2=='$YYYY' && $3=='$MM' && $4=='$DD' && $5=='$HH') print $0}' >  kk
+        tempMETAR=$(cat kk | head -1 | grep "${metar}" | grep -o '[ M][0-9][0-9]/[M]*[0-9][0-9]'| tr "M" "-" | tr "/" " " | awk '{print $1}')
+        fechaMETAR=$(cat kk | awk '{print $2$3$4$$6}')
+          if [ -z "$fechaMETAR" ]; then
+             tempMETAR='NAN'
+             fechaMETAR='NAN'
+             tempBIAS=0
+             tempRMSE=0
+             tempSUMBIAS=0
+             tempSUMRMSE=0
+             else
+              tempBIAS=$(echo $tempPRED - $tempMETAR | bc)
+              tempRMSE=$(echo ${tempBIAS}*${tempBIAS}  | bc)
+              tempSUMBIAS=$(echo $tempSUMBIAS + $tempBIAS | bc)
+              tempSUMRMSE=$(echo $tempSUMRMSE + $tempRMSE | bc)
           fi
-        fi
-        #TODO incluir datos del ECMWF
-        tempECMWF="NAN"
-        tempBIAS=$(echo $tempPRED - $tempMETAR | bc)
-        tempRMSE=$(echo ${tempBIAS}*${tempBIAS}  | bc)
 
-        tempSUMBIAS=$(echo $tempSUMBIAS + $tempBIAS | bc)
-        tempSUMRMSE=$(echo $tempSUMRMSE + $tempRMSE | bc)
+        if [ -e $fnameVALIDA.txt ]; then
+            mv  $fnameVALIDA.txt kkrmdate
+            cat kkrmdate | awk 'NF==8' | grep -v $fechaECMWF  >  $fnameVALIDA.txt
+            rm kkrmdate
+        fi
 
         # Escribe datos en un archivo .txt para que pinte R
-        echo "$fechaMETARok" "$fechaPRED" "$tempPRED" "$fechaMETAR" "${tempMETAR}" "$tempECMWF" "$tempSUMBIAS" "$tempSUMRMSE" >> ${fnameVALIDA}.txt
-      done<kk$icao
+        echo "$fechaECMWF" "$tempECMWF" "$fechaPRED" "$tempPRED" "${fechaMETAR}" "$tempMETAR" "$tempSUMBIAS" "$tempSUMRMSE" >> ${fnameVALIDA}.txt
+    fi  #grib
+  done #loop fechas
       echo "$(datePID):Fin parseo fechas del $icao"
-      valida=$(cat -n ${fnameVALIDA}.txt | tail -1)
+      valida=$(cat -n ${fnameVALIDA}.txt | grep -v "NAN" | tail -1)
       echo "${icao}" "$lon" "$lat" "$alt" $valida | awk '{print $1,$2,$3,$12/$5,sqrt($13)/$5}' | awk 'NF==5' >> ${DIR_BASE}/VALIDA-mundo-$fechaini-$fechafin.txt
       rm $fnamePREDIC.json kk$icao
 done #loop del icao
