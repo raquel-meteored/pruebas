@@ -77,24 +77,20 @@ if [[ ! -e $scriptR1 ]]; then
   exit 1;
 fi
 
-#Fechas y limites temporales
-fechafin=$(date -u +%Y%m%d%H)
-fechaini=$(date -u +%Y%m%d%H -d "-12 hours")
-echo $fechaini
-
 # Valores por defecto.
 cc="A1"
 S="D" # modelo determinista
+fechafin=$(date -u +%Y%m%d%H)
+fechaini=$(date -u +%Y%m%d%H -d "-12 hours")
 DATE=$(date -u +%Y%m%d)
 MMDDHHII="$(date -u +%m%d)${RUN}00"
-dateDOWNLOAD=$fechafin
-weekDOWNLOAD=$(date '+%W')
+
 LIM=350 #maxímo número de segundos de descarga
 TIMEOUT=60 #máximo número de segundos intentando conectarse
 
 # Definición de fichero de bloqueo y de finalización.
 # Se comprueba si se está trabajando ya.
-lockFile=${DIR_DATA}/${scriptName}_${dateDOWNLOAD}.lock
+lockFile=${DIR_DATA}/${scriptName}_${fechafin}.lock
 if [[ -e ${lockFile} ]] ; then
   if [[ $(stat -c %Y "${lockFile}") -gt $(date -u +%s --date="180 minutes ago") ]] ; then
     echo "$(datePID): el fichero ${lockFile} es muy antiguo"
@@ -108,11 +104,9 @@ fi
 echo "$(datePID): Inicia descarga de METAR"
 curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php -o $filemetarID
 ##Descarga METAR info
-curl -s -m $LIM --connect-timeout $TIMEOUT "http://www.ogimet.com/cgi-bin/getmetar?icao=LE&begin=${fechaini}00&end=${fechafin}00" -o $fnameMETAR
-metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep '[L][E][A-Z][A-Z]' | cut -c2-5)
+curl -s -m $LIM --connect-timeout $TIMEOUT "http://www.ogimet.com/cgi-bin/getmetar?begin=${fechaini}00&end=${fechafin}00" -o $fnameMETAR
+metarID=$(cat "$filemetarID" | jq '.points[].icao' | grep '[A-Z][A-Z][A-Z][A-Z]' | cut -c2-5)
 echo "$(datePID): Fin descarga de METAR"
-
-
 
 #Sólo cojo las primeras 12 h
 proy_HRES=$(seq --format %03g 0 3 13)
@@ -120,7 +114,7 @@ proy=(${proy_HRES[@]})
 #loop sobre los METARs para descargar la predicción y comparar
 for icao in $metarID; do
   fnamePREDIC=${DIR_DATA}/PREDIC-$icao-$fechaini-$fechafin
-  fnameVALIDA=${DIR_DATA}/VALIDA-$icao-$fechaini-$fechafin
+  fnameVALIDA=${DIR_DATA}/VALIDA-$icao-$DATE
   fnameECMWF=${DIR_DATA}/ECMWF-$icao-$fechaini-$fechafin #creado con get-info-ECMWF.sh
 
   echo "$(datePID): Ini descarga de json"
@@ -130,8 +124,7 @@ for icao in $metarID; do
   alt=$(cat $filemetarID | jq '[.points[] | select(.icao == "'$icao'") | .alt] | sort []')
   curl -s -m $LIM --connect-timeout $TIMEOUT 'http://aguila.ogimet.com/cgi-bin/otf12?latitud='$lat'&longitud='$lon'&altitud='$alt'&zonaHoraria=etc/UTC&name='$icao'' -o $fnamePREDIC.json
   echo "$(datePID): Fin descarga de json"
-  tempSUMBIAS=0
-  tempSUMRMSE=0
+
   for ((i=0; i<${#proy[@]}; i++)) ; do
     # Caso de fichero de análisis.
     if [[ $(( 10#${proy[$i]} )) -eq 0 ]] ; then
@@ -157,43 +150,49 @@ for icao in $metarID; do
         fechaPRED=$( echo $(date -d "${YYYY}/${MM}/${DD}H${HH}:${mm}" "+%s")*1000 | bc )
         tempPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .temperatura.valor' $fnamePREDIC.json)
         cat "$fnameMETAR" | tr "," " "|awk '{if ($1=="'$icao'" && $2=='$YYYY' && $3=='$MM' && $4=='$DD' && $5=='$HH') print $0}' >  kk
-        tempMETAR=$(cat kk | head -1 | grep "${metar}" | grep -o '[ M][0-9][0-9]/[M]*[0-9][0-9]'| tr "M" "-" | tr "/" " " | awk '{print $1}')
-        fechaMETAR=$(cat kk | awk '{print $2$3$4$$6}')
-          if [ -z "$fechaMETAR" ]; then
-             tempMETAR='NAN'
-             fechaMETAR='NAN'
-             tempBIAS=0
-             tempRMSE=0
-             tempSUMBIAS=0
-             tempSUMRMSE=0
-             else
-              tempBIAS=$(echo $tempPRED - $tempMETAR | bc)
-              tempRMSE=$(echo ${tempBIAS}*${tempBIAS}  | bc)
-              tempSUMBIAS=$(echo $tempSUMBIAS + $tempBIAS | bc)
-              tempSUMRMSE=$(echo $tempSUMRMSE + $tempRMSE | bc)
-          fi
+        tempMETAR=$(cat kk | head -1 | grep "${icao}" | grep -o '[ M][0-9][0-9]/[M]*[0-9][0-9]'| tr "M" "-" | tr "/" " " | awk '{print $1}')
+        fechaMETAR=$(cat kk | head -1 | awk '{print $2$3$4$5$6}')
+        echo $fechaMETAR
+        if [ -z "$fechaMETAR" ]; then
+          tempMETAR='NAN'
+          fechaMETAR='NAN'
+          tempBIAS='NAN'
+          tempRMSE='NAN'
+        else
+          tempBIAS=$(echo $tempPRED - $tempMETAR | bc)
+          tempBIAS_ECMWF=$(echo ${tempECMWF} - ${tempMETAR} | bc)
+          tempRMSE=$(echo ${tempBIAS}^2 | bc)
+          tempRMSE_ECMWF=$(echo ${tempBIAS_ECMWF}^2 | bc)
+        fi
 
         if [ -e $fnameVALIDA.txt ]; then
             mv  $fnameVALIDA.txt kkrmdate
-            cat kkrmdate | awk 'NF==8' | grep -v $fechaECMWF  >  $fnameVALIDA.txt
+            cat kkrmdate | awk 'NF==10' | grep -v $fechaECMWF  >  $fnameVALIDA.txt
             rm kkrmdate
         fi
 
-        # Escribe datos en un archivo .txt para que pinte R
-        echo "$fechaECMWF" "$tempECMWF" "$fechaPRED" "$tempPRED" "${fechaMETAR}" "$tempMETAR" "$tempSUMBIAS" "$tempSUMRMSE" >> ${fnameVALIDA}.txt
+        echo "$fechaECMWF" "$tempECMWF" "$fechaPRED" "$tempPRED" "${fechaMETAR}" "$tempMETAR" "$tempBIAS"  "$tempBIAS_ECMWF" "$tempRMSE" "$tempRMSE_ECMWF" >> ${fnameVALIDA}.txt
     fi  #grib
   done #loop fechas
-      echo "$(datePID):Fin parseo fechas del $icao"
-      valida=$(cat -n ${fnameVALIDA}.txt | grep -v "NAN" | tail -1)
-      echo "${icao}" "$lon" "$lat" "$alt" $valida | awk '{print $1,$2,$3,$12/$5,sqrt($13)/$5}' | awk 'NF==5' >> ${DIR_BASE}/VALIDA-mundo-$fechaini-$fechafin.txt
-      rm $fnamePREDIC.json kk$icao
+      echo "$(datePID): Fin parseo fechas del $icao"
+      #TODO división
+      #valida=$(cat -n ${fnameVALIDA}.txt | grep -v "NAN" | tail -1)
+      bias=$(awk '{s+=$7}END{print s}' ${fnameVALIDA}.txt)
+      rmse=$(awk '{s+=$9}END{print s}' ${fnameVALIDA}.txt)
+      rmseECMWF=$(awk '{s+=$10}END{print s}' ${fnameVALIDA}.txt)
+      npasos=$(cat ${fnameVALIDA}.txt | grep -v "NAN"| wc -l )
+      echo "${icao}" "$lon" "$lat" "$alt" "$bias" "$rmse" "${rmseECMWF}" | awk '{print $1,$2,$3,$5/'$npasos',sqrt($6/'$npasos'),sqrt($7/'$npasos')}' | awk 'NF==6' >> ${DIR_BASE}/VALIDA-mundo-$DATE.txt
+
+      rm $fnamePREDIC.json
 done #loop del icao
-echo "$(datePID):Fin parseo loop ICAO"
+echo "$(datePID): Fin parseo loop ICAO"
   #warning: si se cambian los parámetros de entradas modificar R consecuentemente
   filein=${DIR_BASE}/VALIDA-mundo-$fechaini-$fechafin.txt
-  plotout=${DIR_PLOTS}/MAPA-mundo-METAR-$fechaini-$fechafin.pdf
+  plotMundo=${DIR_PLOTS}/MAPA-mundo-METAR-$fechaini-$fechafin.pdf
+  plotEuropa=${DIR_PLOTS}/MAPA-Europa-METAR-$fechaini-$fechafin.pdf
+  plotEEUU=${DIR_PLOTS}/MAPA-EEUU-METAR-$fechaini-$fechafin.pdf
 
-R --slave --args "${filein}" "${plotout}" << EOF
+R --slave --args "${filein}" "${plotMundo}" "${plotEEUU}" "${plotEuropa}"<< EOF
   args = commandArgs(trailingOnly=TRUE)
   library(ggplot2)
   library("maps")
@@ -202,23 +201,48 @@ R --slave --args "${filein}" "${plotout}" << EOF
  #library(ggmap)
 
   valida=read.table(args[1])
-  data=data.frame(lon=valida[,2],lat=valida[,3],bias=valida[,4], rmse=valida[,5], icao=valida[,1])
+  data=data.frame(lon=valida[,2],lat=valida[,3],bias=valida[,4], rmse=valida[,5], rmseECMWF=valida[,6], icao=valida[,1])
   spainMap <- map_data("world")
 
   pdf(args[2])
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="black") +
-	       geom_point(data=data, aes(x=lon, y=lat, size=rmse, color=bias)) +
+         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+	       geom_point(data=data, aes(x=lon, y=lat, size=rmse, fill=bias), shape=21, col="black") +
+	      # geom_point(data=data, aes(x=lon, y=lat, size=rmseECMWF), shape=5, col="black") +
 	       #geom_text(data=data, aes(x=lon, y=lat+0.1, label=icao), size=1.5) +
-         #coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(22,75))+
-         scale_color_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3")+
+        # coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(22,75))+
+         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-10,10))+
+        # scale_shape_manual(values=c(21,5),labels=c("meteored","ecmwf"))+
          labs(title="Validación: METAR vs METEORED predicciones", x=" " ,y =" ")+
          theme(legend.position = "bottom", legend.direction = "horizontal",
-            panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+
+  pdf(args[3])
+  ggplot() +
+         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+	       geom_point(data=data, aes(x=lon, y=lat, size=rmse, fill=bias), shape=21, col="black") +
+	       geom_point(data=data, aes(x=lon, y=lat, size=rmseECMWF), shape=5, col="black") +
+	       #geom_text(data=data, aes(x=lon, y=lat+0.1, label=icao), size=1.5) +
+         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(22,75))+
+         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3")+
+         labs(title="Validación: METAR vs METEORED predicciones", x=" " ,y =" ")+
+         theme(legend.position = "bottom", legend.direction = "horizontal",
+               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+
+  pdf(args[4])
+  ggplot() +
+         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+	       geom_point(data=data, aes(x=lon, y=lat, size=rmse, fill=bias), shape=21, col="black") +
+	       geom_point(data=data, aes(x=lon, y=lat, size=rmseECMWF), shape=5, col="black") +
+	       #geom_text(data=data, aes(x=lon, y=lat+0.1, label=icao), size=1.5) +
+         coord_map("lambert",lat0=0,lat1=45,xlim=c(-150,-50), ylim=c(22,55))+
+         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-10,10))+
+         labs(title="Validación: METAR vs METEORED predicciones", x=" " ,y =" ")+
+         theme(legend.position = "bottom", legend.direction = "horizontal",
+               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+
 EOF
 echo "$(datePID):Fin pintar mapa"
-#  Rscript --vanilla $scriptR1 "$filein" "$plotout"
+rm $fnameMETAR $filemetarID
 
- # rm $fnameMETAR $filemetarID
-echo "Fin descarga ecmwf data"
-rm ${lockFile}
+#rm ${lockFile}
