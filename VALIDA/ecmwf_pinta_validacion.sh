@@ -15,9 +15,9 @@ AAAAMMDDHH=$1
 fileinT2=${DIR_DATA}/VALIDA-T2-${AAAAMMDDHH}.txt
 fileinV10=${DIR_DATA}/VALIDA-V10-${AAAAMMDDHH}.txt
 fileinTP1h=${DIR_DATA}/VALIDA-TP1H-${AAAAMMDDHH}.txt
-plotT2=${DIR_PLOT}/VALIDA-T2
-plotV10=${DIR_PLOT}/VALIDA-V10
-plotTP1h=${DIR_PLOT}/VALIDA-TP1h
+plotT2=${DIR_PLOT}/VALIDA-${AAAAMMDDHH}-T2
+plotV10=${DIR_PLOT}/VALIDA-${AAAAMMDDHH}-V10
+plotTP1h=${DIR_PLOT}/VALIDA-${AAAAMMDDHH}-TP1h
 
 R --vanilla --args "${fileinT2}" "${fileinV10}" "${fileinTP1h}" "${plotT2}" "${plotV10}" "${plotTP1h}" << EOF
   args = commandArgs(trailingOnly=TRUE)
@@ -52,7 +52,7 @@ R --vanilla --args "${fileinT2}" "${fileinV10}" "${fileinTP1h}" "${plotT2}" "${p
 	       geom_point(data=dataV10, aes(x=lon, y=lat, fill=vv), shape=21, size=2, col="black") +
          scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,10))+
          coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Temperaturas SYNOP", x=" " ,y =" ")+
+         labs(title="Velocidad del viento a 10m SYNOP", x=" " ,y =" ")+
          theme(legend.position = "bottom", legend.direction = "horizontal",
                panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
 
@@ -62,7 +62,7 @@ R --vanilla --args "${fileinT2}" "${fileinV10}" "${fileinTP1h}" "${plotT2}" "${p
 	       geom_point(data=dataTP1h, aes(x=lon, y=lat, fill=tp), shape=21, size=2, col="black") +
          scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,10))+
          coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Temperaturas SYNOP", x=" " ,y =" ")+
+         labs(title="Precipitación SYNOP", x=" " ,y =" ")+
          theme(legend.position = "bottom", legend.direction = "horizontal",
                panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
 

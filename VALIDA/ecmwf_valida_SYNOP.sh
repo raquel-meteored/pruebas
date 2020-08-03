@@ -1,6 +1,10 @@
 #!/bin/bash
 ####################################################################################
-### Extrae información sobre las estaciones de los BUFR
+### Extrae información sobre las estaciones de los SYNOP
+### Compara:
+#       - con las predicciones del ECWMF y de METEORED
+#       - para precipitación, t2m y v10m
+###
 ### Creado en 06-2020
 # Raquel Lorente Plazas <raquel@meteored.com>
 # Marcos Molina Cano <marcos@meteored.com>
@@ -15,8 +19,6 @@ function datePID {
 	  echo "$(date -u +%Y/%m/%d\ %H:%M:%S) UTC [$$]"
   }
 
-
-# Función que muestra la ayuda.
 # Función que define la ayuda sobre este script.
 function showUsage {
   echo
@@ -95,13 +97,15 @@ while true ; do
 done
 
 # Valores por defecto.
-AAAAMMDDHH=${fecha}${pasada}
+YYYYMMDDHH=${fecha}${pasada}
 YYYY=$(echo "${fecha}" | cut -c1-4)
 MM=$(echo "${fecha}" | cut -c5-6)
 DD=$(echo "${fecha}" | cut -c7-8)
+
 #Hay que coger un día completo para desacumular la precip de los SYNOP
 fechaini=${fecha}0000
-fechafin=$(date -d"00:00 ${YYYY}-${MM}-${DD} +25 hours" +"%Y%m%d%H%M")
+fechafin=$(date -d"00:00 ${fecha} +25 hours" +"%Y%m%d%H%M")
+
 LIM=350 #maxímo número de segundos de descarga
 TIMEOUT=60 #máximo número de segundos intentando conectarse
 
@@ -109,22 +113,39 @@ TIMEOUT=60 #máximo número de segundos intentando conectarse
 DIR_BASE=/home/raquel/repos/pruebas/VALIDA
 DIR_DATA=/home/raquel/Data/SYNOP
 DIR_PLOTS=/home/raquel/Plots/SYNOP
+PREFIX=${DIR_BASE}
 
 mkdir -p ${DIR_DATA} ${DIR_PLOTS}
 
 # Definición de ficheros necesarios.
-finishedFile="${PREFIX}"/meteored/finished_"${scriptName}"_"${fecha}"_"${pasada}"
-lockFile="${PREFIX}"/meteored/${scriptName}.lock
+finishedFile="${PREFIX}"/finished_"${scriptName}"_"${fecha}"_"${pasada}"
+lockFile="${PREFIX}"/${scriptName}.lock
 
 #Comprobación de que existen los Ficheros
-# y si exiten se borran
-filesynopID=${DIR_BASE}/station-list.csv #coordenadas de los synop
-
-
+#filesynopID=${DIR_BASE}/station-list.csv #coordenadas de los synop
+filesynopID=${DIR_BASE}/station-list.json
 #if [[ -e ${filemetarID} ]] ; then
 #  rm -f $filemetarID
 #fi
 
+# Se comprueba si la tarea ya se ha realizado.
+test -e "${finishedFile}" && exit
+
+# Si existe el fichero de bloqueo y tiene menos de X minutos termina.
+if [[ -e "${lockFile}" ]]; then
+
+  if [[ $(stat -c %Y "${lockFile}") -lt $(date -u +%s --date="20 minutes ago") ]]; then
+    echo "$(datePID): Archivo de bloqueo demasiado antiguo. Borrando y creando..."
+    touch "${lockFile}"
+  else
+    echo "$(datePID): Archivo de bloqueo existente. Saliendo..."
+    exit
+  fi
+
+else
+  echo "$(datePID) - Inicio"
+  touch "${lockFile}"
+fi
 
 # Comprobación de que existe software para optimizar.
 Rscript="/usr/bin/Rscript"
@@ -135,11 +156,11 @@ command -v ${Rscript} > /dev/null 2>&1 || { echo "$(datePID): ${Rscript} no est�
 command -v ${GRIB_GET} > /dev/null 2>&1 || { echo "$(datePID): ${GRIB_GET} no está instalado." && exit 1; }
 command -v ${Jsonjq} > /dev/null 2>&1 || { echo "$(datePID): ${Jsonjq} no está instalado." && exit 1; }
 
-
 echo "$(datePID): Inicia descarga de SYNOP"
 #TODO Marcos
 ##Descarga SYNOP coord: lon lat alt
-#curl -s -m $LIM --connect-timeout $TIMEOUT http://aire.ogimet.com/meteoflight_reports.php -o $filemetarID
+curl -s -m $LIM --connect-timeout $TIMEOUT "http://aire.ogimet.com/cgi-bin/getsynop?begin=${fechaini}00&state=Spa&format=json" -o $filesynopID
+exit
 ##Descarga SYNOP info
 fnameSYNOP=${DIR_BASE}/synop-${fechaini}-${fechafin}.csv #datos
 if [[ ! -e ${fnameSYNOP} ]] ; then
@@ -158,7 +179,6 @@ synopID=$(cat "$filesynopID" |  awk -F "," '{print $1}')
 horas=($(seq -w 0 23))
 prec_res=(6 1 1 3 1 1 12 1 1 3 1 1 6 1 1 3 1 1 12 1 1 3 1 1)
 prec_tr=(1 5 5 7 5 5 2 5 5 7 5 5 1 5 5 7 5 5 2 5 5 7 5 5)
-
 
 for station in ${synopID}; do
 
@@ -181,67 +201,25 @@ for station in ${synopID}; do
     #FECHAS
     hora=${horas[$i]}
     fechaSYNOP=$(cat "${fnameSYNOP}" | awk -F "," '{if ($1=="'$station'" && $4=="'$DD'" && $5=="'$hora'") print $2$3$4$5$6}')
-    HH=$(echo "${fechaSYNOP}" | cut -c9-10)
-    #TODO si mm es mas de 30 sería validar la siguiente hora, pongo 00
-    mm=$(echo "${fechaSYNOP}" | cut -c11-12)
 
-    #Buscamos la hora unix correspondiente a la UTC del SYNOP
-    fechaPRED=$( echo $(date -d "${YYYY}/${MM}/${DD}H${HH}:00" "+%s")*1000 | bc )
-
-    #TODO cambiar a 3h
-    #Fecha GRIB
+    #Primero comprobamos que exiten lo gribs
     PROY=$(printf '%03g' $hora)
     PROY_INI=$(echo ${PROY} - 1 | bc)
-    #TODO COMPROBAR FECHA
-    fechaGRIB=${YYYY}${MM}${DD}
-    fnameGRIB=/home/ecmwf/${AAAAMMDDHH}/ECMWF_${AAAAMMDDHH}_${PROY}.grb
+
+    fnameGRIB=/home/ecmwf/${YYYYMMDDHH}/ECMWF_${YYYYMMDDHH}_${PROY}.grb
 
     if [[ ! -f ${fnameGRIB} ]]; then
       echo $fnameGRIB does not exist
+      rm $lockFile
       exit
     fi
 
     #Nos quedamos con las secciones del SYNOP
     cat "$fnameSYNOP" | awk -F "," '{if ($1=="'$station'" && $4=="'$DD'" && $5=='${hora}') print $7}' > kkestaciones
 
-    #Dentro de las secciones del SYNOP buscamos:
+    #Dentro de las secciones del SYNOP buscamos, T2m, V10m y Precip:
 
-    ##TEMPERATURA
-    #grupo 1 es temperatura 1SnTTT; donde Sn es el signo
-    sec1gr1=($(cat kkestaciones | grep -o '[1][0-1][0-9][0-9][0-9]'))
-    SN=${sec1gr1:1:1} #Nos da el signo
-    pp=${sec1gr1[0]:2:3} #Valor precip
-
-    if [[ -z $pp ]]; then
-      tempSYNOP=NAN
-    else
-      if [[ $SN -eq 1 ]]; then
-        tempSYNOP=$(echo "scale=4;${pp}*-0.1" | bc)
-      else
-        tempSYNOP=$(echo "scale=4;${pp}*0.1" | bc)
-      fi
-    fi
-
-    #VIENTO
-    #grupo Nddff es viento dd dirección y ff velocidad
-    #Para saber la unidades; sección0 grupo YYGGiw (iw nudos o m/s)
-    sec0gr1=$(cat kkestaciones | awk '{print $2}')
-    iw=${sec0gr1:4:1} #Nos da las unidades
-    sec1grN=$(cat kkestaciones | awk '{print $5}')
-    vv=${sec1grN:3:2}
-
-    #Unidades en m/s
-    if [[ -z $vv ]]; then
-      windSYNOP=NAN
-    else
-      if [[ $iw -gt 3 ]]; then
-        windSYNOP=$(echo "scale=4;${vv}*0.514" | bc)
-      else
-        windSYNOP=${sec1grN:3:2}
-      fi
-    fi
-
-    #PRECIPITACIÓN
+    ##PRECIPITACIÓN
     #grupo 6 es precipitación 6PPPtr; donde tr es la resolucion temporal
     sec1gr6=$(cat kkestaciones | cut -d' ' -f4- | grep -o '[6][0-9][0-9][0-9]['${prec_tr[$i]}']')
     trace=${sec1gr6[0]:1:2}
@@ -302,6 +280,7 @@ for station in ${synopID}; do
 
     echo ${DD} ${hora} $tp1hSYNOP $sec1gr6 ${prec_res[$i]} $ir ${prec_tr[$i]} $i  >> ts-precip1h-$station
 
+    #Cálculos trihorarios
     multiple=$(( ${i} % 3 ))
 
     if [[ $multiple -ne 0 || ${hora} -eq 0 ]]; then
@@ -309,24 +288,64 @@ for station in ${synopID}; do
         continue
     fi
 
-    #VALIDACIÓN
-    ##METEORED: Comparamos con la predicción de meteored dentro de un json
-    tempPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .temperatura.valor' $fnamePREDIC)
-    precPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .precipitacion.valor' $fnamePREDIC)
-    windPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .viento.velocidad' $fnamePREDIC)
+    ##TEMPERATURA
+    #grupo 1 es temperatura 1SnTTT; donde Sn es el signo
+    sec1gr1=($(cat kkestaciones | awk '{print $6}' | grep -o '[1][0-1][0-9][0-9][0-9]'))
+    SN=${sec1gr1:1:1} #Nos da el signo
+    temp=${sec1gr1[0]:2:3} #Valor temp
 
+    if [[ -z $temp ]]; then
+      tempSYNOP=NAN
+    else
+      if [[ $SN -eq 1 ]]; then
+        tempSYNOP=$(echo "scale=4;${temp}*-0.1" | bc)
+      else
+        tempSYNOP=$(echo "scale=4;${temp}*0.1" | bc)
+      fi
+    fi
+
+    #VIENTO
+    #grupo Nddff es viento dd dirección y ff velocidad
+    #Para saber la unidades; sección0 grupo YYGGiw (iw nudos o m/s)
+    sec0gr1=$(cat kkestaciones | awk '{print $2}')
+    iw=${sec0gr1:4:1} #Nos da las unidades
+    sec1grN=$(cat kkestaciones | awk '{print $5}')
+    vv=${sec1grN:3:2}
+
+    #Unidades en m/s
+    if [[ -z $vv ]]; then
+      windSYNOP=NAN
+    else
+      if [[ $iw -gt 3 ]]; then
+        windSYNOP=$(echo "scale=4;${vv}*0.514" | bc)
+      else
+        windSYNOP=${sec1grN:3:2}
+      fi
+    fi
+
+    #VALIDACIÓN
     ##ECMWF: Grib con datos del ECMWF en bruto
     temp2t=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=2t -p date,step ${fnameGRIB}))
     tp1h=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=tp,stepRange=${PROY_INI}-${i} -p date,step ${fnameGRIB}))
-    wind10=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=10v -p date,step ${fnameGRIB}))
-    wind10=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=10u -p date,step ${fnameGRIB}))
+    v10=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=10v -p date,step ${fnameGRIB}))
+    u10=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=10u -p date,step ${fnameGRIB}))
 
     tempECMWF=$(echo ${temp2t[2]} - 273.15 | bc )
     tp1hCMWF=${tp1h[2]}
-    windECMWF=${wind10[2]}
+    windECMWF=$(echo ${v10[2]} ${u10[2]} | awk '{print sqrt ($1*$1 + $2*$2)}')
+    paso=$(echo "${temp2t[1]}" + "${pasada}" | bc)
+    # fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "$paso"*100 | bc)
+    fechaECMWF=$(date -d"00 ${temp2t[0]} +$paso hours" +"%Y%m%d%H" | bc)
 
-    #paso=$(echo "${temp2t[1]}" +  "${pasada}" | bc)
-    fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "${temp2t[1]}"*100 | bc)
+    ##METEORED: Comparamos con la predicción de meteored dentro de un json
+    #Buscamos la hora unix correspondiente a la UTC del SYNOP
+    fechaPRED=$( echo $(date -u -d "${fechaECMWF:0:4}-${fechaECMWF:4:2}-${fechaECMWF:6:2} ${fechaECMWF:8:2}:00:00" "+%s")*1000 | bc )
+
+    tempPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .temperatura.valor' $fnamePREDIC)
+    precPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .precipitacion.valor' $fnamePREDIC)
+    vvPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .viento.velocidad' $fnamePREDIC)
+    windPRED=$(echo "scale=4;${vvPRED}*0.28" | bc)
+    horaPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .hora' $fnamePREDIC)
 
     #Estadísticos
     tempBIAS_PRED=$(echo $tempPRED - $tempSYNOP | bc)
@@ -355,10 +374,10 @@ for station in ${synopID}; do
       windBIAS_PRED=NAN
     fi
 
-    echo $station $lon $lat $fechaSYNOP $tempSYNOP $tp1hSYNOP $tempPRED $precPRED $tempBIAS $precBIAS $sec1gr6  $sec1gr1  $seccion3 $lenPrecip | grep -v "NAN" >> prueba-$fechaSYNOP
-    echo $station $lon $lat synop=$fechaSYNOP e=$fechaECMWF $tempSYNOP $tempPRED $tempECMWF ${tempBIAS_PRED} ${tempBIAS_ECMWF} | grep -v "NAN" >> t2
-    echo $station $lon $lat synop=$fechaSYNOP e=$fechaECMWF $tp1hSYNOP $precPRED $tp1hECMWF ${precBIAS_PRED} ${precBIAS_ECMWF} | grep -v "NAN" >> tp1h
-    echo $station $lon $lat synop=$fechaSYNOP e=$fechaECMWF $windSYNOP $windPRED $windECMWF ${windBIAS_PRED} ${windBIAS_ECMWF} | grep -v "NAN" >> v10
+    #echo $station $lon $lat $fechaSYNOP $tempSYNOP $tp1hSYNOP $tempPRED $precPRED $tempBIAS $precBIAS $sec1gr6  $sec1gr1  $seccion3 $lenPrecip | grep -v "NAN" >> prueba-$fechaSYNOP
+    echo $station $lon $lat synop=$fechaSYNOP e=$fechaECMWF $tempSYNOP $tempPRED $tempECMWF ${tempBIAS_PRED} ${tempBIAS_ECMWF} ${horaPRED} | grep -v "NAN" >> t2
+    echo $station $lon $lat synop=$fechaSYNOP e=$fechaECMWF $tp1hSYNOP $precPRED $tp1hECMWF ${precBIAS_PRED} ${precBIAS_ECMWF} ${horaPRED} | grep -v "NAN" >> tp1h
+    echo $station $lon $lat synop=$fechaSYNOP e=$fechaECMWF $windSYNOP $windPRED $windECMWF ${windBIAS_PRED} ${windBIAS_ECMWF} ${horaPRED} | grep -v "NAN" >> v10
     rm kkestaciones
   done #loop hora
 
@@ -398,24 +417,30 @@ for station in ${synopID}; do
 
   npasos=$(cat ${fnameVALIDAt2}| grep -v "NAN"| wc -l )
   if [[ ! -z $npasos && $npasos -gt 0 ]]; then
-    echo "${station}" "$lon" "$lat" "${temp_MEAN_SYNOP}" "${temp_MEAN_PRED}" "${temp_MEAN_ECMWF}" "${temp_meanBIAS_PRED}" "${temp_BIAS_ECMWF}" | awk '{print $1,$2,$3,$4/'$npasos',$5/'$npasos',$6/'$npasos',sqrt($7/'$npasos'),sqrt($8/'$npasos')}' >> kkt2
+    echo "${station}" "$lon" "$lat" "${temp_MEAN_SYNOP}" "${temp_MEAN_PRED}" "${temp_MEAN_ECMWF}" "${temp_meanBIAS_PRED}" "${temp_meanBIAS_ECMWF}" | awk '{print $1,$2,$3,$4/'$npasos',$5/'$npasos',$6/'$npasos',$7/'$npasos',$8/'$npasos'}' >> kkt2
   fi
 
   npasos=$(cat ${fnameVALIDAv10}| grep -v "NAN"| wc -l )
   if [[ ! -z $npasos && $npasos -gt 0 ]]; then
-    echo "${station}" "$lon" "$lat" "${wind_MEAN_SYNOP}" "${wind_MEAN_PRED}" "${wind_MEAN_ECMWF}" "${wind_meanBIAS_PRED}" "${wind_BIAS_ECMWF}" | awk '{print $1,$2,$3,$4/'$npasos',$5/'$npasos',$6/'$npasos',sqrt($7/'$npasos'),sqrt($8/'$npasos')}' >> kkv10
+    echo "${station}" "$lon" "$lat" "${wind_MEAN_SYNOP}" "${wind_MEAN_PRED}" "${wind_MEAN_ECMWF}" "${wind_meanBIAS_PRED}" "${wind_meanBIAS_ECMWF}" | awk '{print $1,$2,$3,$4/'$npasos',$5/'$npasos',$6/'$npasos',$7/'$npasos',$8/'$npasos'}' >> kkv10
   fi
 
   npasos=$(cat ${fnameVALIDAtp1h}| grep -v "NAN"| wc -l )
   if [[ ! -z $npasos && $npasos -gt 0 ]]; then
-    echo "${station}" "$lon" "$lat" "${tp1h_MEAN_SYNOP}" "${tp1h_MEAN_PRED}" "${tp1h_MEAN_ECMWF}" "${tp1h_meanBIAS_PRED}" "${tp1h_BIAS_ECMWF}" | awk '{print $1,$2,$3,$4/'$npasos',$5/'$npasos',$6/'$npasos',sqrt($7/'$npasos'),sqrt($8/'$npasos')}' >> kktp1h
+    echo "${station}" "$lon" "$lat" "${tp1h_MEAN_SYNOP}" "${tp1h_MEAN_PRED}" "${tp1h_MEAN_ECMWF}" "${tp1h_meanBIAS_PRED}" "${tp1h_meanBIAS_ECMWF}" | awk '{print $1,$2,$3,$4/'$npasos',$5/'$npasos',$6/'$npasos',$7/'$npasos',$8/'$npasos'}' >> kktp1h
   fi
 
 done #loop stations
 
-  mv kkt2 "${DIR_DATA}"/VALIDA-T2-"${AAAAMMDDHH}".txt
-  mv kkv10 "${DIR_DATA}"/VALIDA-V10-"${AAAAMMDDHH}".txt
-  mv kktp1h "${DIR_DATA}"/VALIDA-TP1H-"${AAAAMMDDHH}".txt
-  echo "Pinta gráficas"
-  bash -x ecmwf_pinta_validacion.sh "${AAAAMMDDHH}"
- # rm kk*
+mv kkt2 "${DIR_DATA}"/VALIDA-T2-"${YYYYMMDDHH}".txt
+mv kkv10 "${DIR_DATA}"/VALIDA-V10-"${YYYYMMDDHH}".txt
+mv kktp1h "${DIR_DATA}"/VALIDA-TP1H-"${YYYYMMDDHH}".txt
+
+#Pinta datos con R
+echo "Pinta gráficas"
+bash -x ecmwf_pinta_validacion.sh "${YYYYMMDDHH}"
+
+# Se borra fichero de bloqueo y se crea fichero de finalización.
+rm "${lockFile}"
+touch "${finishedFile}"
+echo "$(datePID) - Fin"
