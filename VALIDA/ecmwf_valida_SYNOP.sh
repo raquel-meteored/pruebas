@@ -20,7 +20,7 @@ function datePID {
   }
 
 # Función que define la ayuda sobre este script.
-function showUsage {
+function showUse {
   echo
   echo "Uso: ${scriptName} HH [-d|--date AAAAMMDD] [-D|--Day -1|-2] [-h|--help]"
   echo
@@ -121,13 +121,6 @@ mkdir -p ${DIR_DATA} ${DIR_PLOTS}
 finishedFile="${PREFIX}"/finished_"${scriptName}"_"${fecha}"_"${pasada}"
 lockFile="${PREFIX}"/${scriptName}.lock
 
-#Comprobación de que existen los Ficheros
-#filesynopID=${DIR_BASE}/station-list.csv #coordenadas de los synop
-filesynopID=${DIR_BASE}/station-list.json
-#if [[ -e ${filemetarID} ]] ; then
-#  rm -f $filemetarID
-#fi
-
 # Se comprueba si la tarea ya se ha realizado.
 test -e "${finishedFile}" && exit
 
@@ -157,18 +150,16 @@ command -v ${GRIB_GET} > /dev/null 2>&1 || { echo "$(datePID): ${GRIB_GET} no es
 command -v ${Jsonjq} > /dev/null 2>&1 || { echo "$(datePID): ${Jsonjq} no está instalado." && exit 1; }
 
 echo "$(datePID): Inicia descarga de SYNOP"
-#TODO Marcos
-##Descarga SYNOP coord: lon lat alt
-curl -s -m $LIM --connect-timeout $TIMEOUT "http://aire.ogimet.com/cgi-bin/getsynop?begin=${fechaini}00&state=Spa&format=json" -o $filesynopID
-exit
-##Descarga SYNOP info
-fnameSYNOP=${DIR_BASE}/synop-${fechaini}-${fechafin}.csv #datos
+
+##Descarga SYNOP coord y info
+fnameSYNOP=${DIR_BASE}/synop-${fechaini}-${fechafin}.json #datos
 if [[ ! -e ${fnameSYNOP} ]] ; then
-  curl -s -m $LIM --connect-timeout $TIMEOUT "https://www.ogimet.com/cgi-bin/getsynop?begin=${fechaini}00&end=${fechafin}00&state=Spa" -o $fnameSYNOP
+  curl -s -m $LIM --connect-timeout $TIMEOUT "http://aire.ogimet.com/cgi-bin/getsynop?begin=${fechaini}00&end=${fechafin}00&state=%25&format=json" -o $fnameSYNOP
+  #curl -s -m $LIM --connect-timeout $TIMEOUT "https://www.ogimet.com/cgi-bin/getsynop?begin=${fechaini}00&end=${fechafin}00&state=Spa" -o $fnameSYNOP
 fi
 echo "$(datePID): Fin descarga de SYNOP"
 
-synopID=$(cat "$filesynopID" |  awk -F "," '{print $1}')
+synopID=$(cat "$fnameSYNOP" |  jq '.[].estacion' | tr "\"" " ")
 
 #Resolución temporal de la precipitación
 #prec_tr es el código y prec_res la resolución correspondiente en horas
@@ -188,9 +179,9 @@ for station in ${synopID}; do
   fnameVALIDAtp1h=${DIR_DATA}/validaPREC-"${station}".txt
 
   #Coordenadas
-  lat=$( cat ${filesynopID} | awk -F "," '{if ($1=="'$station'") print $2}')
-  lon=$( cat ${filesynopID} | awk -F "," '{if ($1=="'$station'") print $3}')
-  alt=$( cat ${filesynopID} | awk -F "," '{if ($1=="'$station'") print $4}')
+  lat=$(jq '.[] | select (.estacion == "'$station'" ) | .latitud' ${fnameSYNOP} | head -1)
+  lon=$(jq '.[] | select (.estacion == "'$station'" ) | .longitud' ${fnameSYNOP} | head -1)
+  alt=$(jq '.[] | select (.estacion == "'$station'" ) | .altitud' ${fnameSYNOP} | head -1)
 
   #Descarga forecast info del json file en la localidad del SYNOP
   echo "$(datePID): Inicio descarga de json"
@@ -200,7 +191,8 @@ for station in ${synopID}; do
   for i in $(seq 0 23);do
     #FECHAS
     hora=${horas[$i]}
-    fechaSYNOP=$(cat "${fnameSYNOP}" | awk -F "," '{if ($1=="'$station'" && $4=="'$DD'" && $5=="'$hora'") print $2$3$4$5$6}')
+    #fechaSYNOP=$(cat "${fnameSYNOP}" | awk -F "," '{if ($1=="'$station'" && $4=="'$DD'" && $5=="'$hora'") print $2$3$4$5$6}')
+    fechaSYNOP=$(echo $YYYY$MM$DD$hora)
 
     #Primero comprobamos que exiten lo gribs
     PROY=$(printf '%03g' $hora)
@@ -215,7 +207,8 @@ for station in ${synopID}; do
     fi
 
     #Nos quedamos con las secciones del SYNOP
-    cat "$fnameSYNOP" | awk -F "," '{if ($1=="'$station'" && $4=="'$DD'" && $5=='${hora}') print $7}' > kkestaciones
+    #cat "$fnameSYNOP" | awk -F "," '{if ($1=="'$station'" && $4=="'$DD'" && $5=='${hora}') print $7}' > kkestaciones
+    jq '.[] | select (.estacion == "'$station'" and .dia == "'$DD'" and .hora == "'${hora}'") | .parte' ${fnameSYNOP} > kkestaciones
 
     #Dentro de las secciones del SYNOP buscamos, T2m, V10m y Precip:
 
@@ -331,7 +324,7 @@ for station in ${synopID}; do
     u10=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=10u -p date,step ${fnameGRIB}))
 
     tempECMWF=$(echo ${temp2t[2]} - 273.15 | bc )
-    tp1hCMWF=${tp1h[2]}
+    tp1hECMWF=${tp1h[2]}
     windECMWF=$(echo ${v10[2]} ${u10[2]} | awk '{print sqrt ($1*$1 + $2*$2)}')
     paso=$(echo "${temp2t[1]}" + "${pasada}" | bc)
     # fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "$paso"*100 | bc)

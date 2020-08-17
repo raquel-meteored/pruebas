@@ -25,6 +25,7 @@ R --vanilla --args "${fileinT2}" "${fileinV10}" "${fileinTP1h}" "${plotT2}" "${p
   library("maps")
   library("mapdata")
   library("mapproj")
+  library("RColorBrewer")
  #library(ggmap)
 
   T2=read.table(args[1])
@@ -34,157 +35,156 @@ R --vanilla --args "${fileinT2}" "${fileinV10}" "${fileinTP1h}" "${plotT2}" "${p
   TP1h=read.table(args[3])
   dataTP1h=data.frame(lon=TP1h[,2], lat=TP1h[,3],tp=TP1h[,4], tpPRED=TP1h[,5], tpECMWF=TP1h[,6], tpbiasPRED=TP1h[,7], tpbiasECMWF=TP1h[,8], station=TP1h[,1])
 
-  spainMap <- map_data("world")
+  coordMap=coord_map("lambert",lat0=30,lat1=65,xlim=c(-12,5), ylim=c(34,45))
+
+  tema=theme( legend.direction = "horizontal", legend.position = c(0.5, 0.05),
+                legend.background = element_rect(fill="white",  size=0.2, linetype="solid", colour ="black"),
+                legend.title = element_text(size=6), legend.text = element_text(size=6),
+                legend.key = element_rect(fill = "white", colour = "white" ,  size=0.2),
+                panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+
+  paletaT2=scale_fill_gradientn(colours=rev(brewer.pal(9,"Spectral")),name="Temp. (C)",limits=c(-30,30))
+  paletaV10=scale_fill_gradientn(colours=brewer.pal(9,"Purples"),name="Veloc. Viento (m/s)",limits=c(0,12))
+  paletaPR=scale_fill_gradientn(colours=brewer.pal(9,"Blues"),name="Precip. (mm)",limits=c(0,100))
+  paletaBIAS=scale_fill_gradientn(colours=rev(brewer.pal(9,"RdBu")),limits=c(-5,5))
+
+  worldMap <- map_data("world")
 
   pdf(paste(args[4],'-SYNOP.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
-	       geom_point(data=dataT2, aes(x=lon, y=lat, fill=temp), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,40))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Temperaturas SYNOP", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
+	       geom_point(data=dataT2, aes(x=lon, y=lat, fill=temp), shape=21, size=2) +
+	       paletaT2+
+         coordMap+
+         labs(title="Temperaturas SYNOP", x=" " ,y =" ",  fill = "Temp. (C)")+
+         tema
 
   pdf(paste(args[5],'-SYNOP.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
-	       geom_point(data=dataV10, aes(x=lon, y=lat, fill=vv), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,10))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
+	       geom_point(data=dataV10, aes(x=lon, y=lat, fill=vv), shape=21, size=2) +
+	       paletaV10 +
+         coordMap +
          labs(title="Velocidad del viento a 10m SYNOP", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         tema
+
 
   pdf(paste(args[6],'-SYNOP.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
-	       geom_point(data=dataTP1h, aes(x=lon, y=lat, fill=tp), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,10))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Precipitación SYNOP", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
+	       geom_point(data=dataTP1h, aes(x=lon, y=lat, fill=tp), shape=21, size=2) +
+         paletaPR+
+         coordMap+
+         labs(title="Precipitación SYNOP", x=" " ,y =" ") +
+         tema
 
   pdf(paste(args[4],'-PRED.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
-	       geom_point(data=dataT2, aes(x=lon, y=lat, fill=tempPRED), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,40))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
+	       geom_point(data=dataT2, aes(x=lon, y=lat, fill=tempPRED), shape=21, size=2) +
+         paletaT2+
+         coordMap+
          labs(title="Temperaturas 2m  METEORED", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         tema
 
   pdf(paste(args[5],'-PRED.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
-	       geom_point(data=dataV10, aes(x=lon, y=lat, fill=vvPRED), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,10))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
+	       geom_point(data=dataV10, aes(x=lon, y=lat, fill=vvPRED), shape=21, size=2) +
+         paletaV10+
+         coordMap+
          labs(title="Velocidad del viento METEORED", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         tema
 
   pdf(paste(args[6],'-PRED.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
-	       geom_point(data=dataTP1h, aes(x=lon, y=lat, fill=tpPRED), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,10))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
+	       geom_point(data=dataTP1h, aes(x=lon, y=lat, fill=tpPRED), shape=21, size=2) +
+         paletaPR+
+         coordMap+
          labs(title="Precipitación METEORED", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         tema
 
   pdf(paste(args[4],'-ECMWF.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
-	       geom_point(data=dataT2, aes(x=lon, y=lat, fill=tempECMWF), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,40))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
+	       geom_point(data=dataT2, aes(x=lon, y=lat, fill=tempECMWF), shape=21, size=2) +
+	       paletaT2 +
+         coordMap+
          labs(title="Temperaturas 2m ECMWF", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         tema
 
   pdf(paste(args[5],'-ECMWF.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=dataV10, aes(x=lon, y=lat, fill=vvECMWF), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,10))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
+         paletaV10+
+         coordMap+
          labs(title="Velocidad del viento ECMWF", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         tema
 
   pdf(paste(args[6],'-ECMWF.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=dataTP1h, aes(x=lon, y=lat, fill=tpECMWF), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(0,10))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
+         paletaPR+
+         coordMap+
          labs(title="Precipitación ECMWF", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         tema
 
   pdf(paste(args[4],'_BIAS_PRED.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=dataT2, aes(x=lon, y=lat, fill=tempbiasPRED), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-5,5))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Bias Temp. 2m METEORED", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+	       paletaBIAS +
+	       coordMap+
+         labs(title="Bias Temp. 2m METEORED", x=" " ,y =" ", fill = "Temp. (C)")+
+         tema
 
   pdf(paste(args[5],'_BIAS_PRED.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
-	       geom_point(data=dataV10, aes(x=lon, y=lat, fill=vvbiasPRED), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-5,5))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Bias Viento 10 m METEORED", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
+	       geom_point(data=dataV10, aes(x=lon, y=lat, fill=vvbiasPRED), shape=21, size=2) +
+	       paletaBIAS +
+	       coordMap+
+         labs(title="Bias Viento 10 m METEORED", x=" " ,y =" ", fill = "Veloc. Viento (m/s)")+
+         tema
 
   pdf(paste(args[6],'BIAS_PRED.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=dataTP1h, aes(x=lon, y=lat, fill=tpbiasPRED), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-5,5))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Bias precipitación METEORED", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         paletaBIAS +
+         coordMap+
+         labs(title="Bias precipitación METEORED", x=" " ,y =" ", fill = "Precip. (mm)")+
+         tema
 
   pdf(paste(args[4],'_BIAS_ECMWF.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=dataT2, aes(x=lon, y=lat, fill=tempbiasECMWF), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-5,5))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Bias Temp. 2m ECMWF", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+	       paletaBIAS +
+	       coordMap+
+         labs(title="Bias Temp. 2m ECMWF", x=" " ,y =" ", fill = "Temp. (C)")+
+         tema
 
   pdf(paste(args[5],'_BIAS_ECMWF.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=dataV10, aes(x=lon, y=lat, fill=vvbiasECMWF), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-5,5))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Bias viento a 10 m ECMWF", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+	       paletaBIAS +
+	       coordMap+
+         labs(title="Bias Viento 10 m ECMWF", x=" " ,y =" ", fill = "Veloc. Viento (m/s)")+
+         tema
 
   pdf(paste(args[6],'_BIAS_ECMWF.pdf',sep=""))
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=dataTP1h, aes(x=lon, y=lat, fill=tpbiasECMWF), shape=21, size=2, col="black") +
-         scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-5,5))+
-         coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
-         labs(title="Bias precipitación ECMWF", x=" " ,y =" ")+
-         theme(legend.position = "bottom", legend.direction = "horizontal",
-               panel.background = element_blank(), panel.border = element_rect(linetype = "solid", fill = NA))
+         paletaBIAS +
+         coord_map("lambert",lat0=30,lat1=65,xlim=c(-12,5), ylim=c(34,45))+
+         labs(title="Bias precipitación ECMWF", x=" " ,y =" ", fill = "Precip. (mm)")+
+         tema
 
 dev.off()
 EOF
@@ -211,11 +211,11 @@ R --vanilla --args "${filein}" "${plotTemp}" "${plotPrec}" "${plotTempPRED}" "${
 
   valida=read.table(args[1])
   data=data.frame(lon=valida[,2], lat=valida[,3],temp=valida[,5], precip=valida[,6], tempPRED=valida[,7], precipPRED=valida[,8] ,tempBIAS=valida[,9], precipBIAS=valida[,10], station=valida[,1])
-  spainMap <- map_data("world")
+  worldMap <- map_data("world")
 
   pdf(args[2])
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=data, aes(x=lon, y=lat, fill=temp), shape=21, size=2, col="black") +
          scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-35,35))+
          coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
@@ -225,7 +225,7 @@ R --vanilla --args "${filein}" "${plotTemp}" "${plotPrec}" "${plotTempPRED}" "${
 
   pdf(args[3])
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=data, aes(x=lon, y=lat, fill=precip), shape=21, size=2, col="black") +
          scale_fill_gradient2(low="white", mid="cyan", high="darkblue", limits=c(0,10))+
          coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
@@ -235,7 +235,7 @@ R --vanilla --args "${filein}" "${plotTemp}" "${plotPrec}" "${plotTempPRED}" "${
 
   pdf(args[4])
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=data, aes(x=lon, y=lat, fill=tempPRED), shape=21, size=2, col="black") +
          scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-35,35))+
          coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
@@ -245,7 +245,7 @@ R --vanilla --args "${filein}" "${plotTemp}" "${plotPrec}" "${plotTempPRED}" "${
 
   pdf(args[5])
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=data, aes(x=lon, y=lat, fill=precipPRED), shape=21, size=2, col="black") +
          scale_fill_gradient2(low="white", mid="cyan", high="darkblue", limits=c(0,10))+
          coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
@@ -255,7 +255,7 @@ R --vanilla --args "${filein}" "${plotTemp}" "${plotPrec}" "${plotTempPRED}" "${
 
   pdf(args[6])
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=data, aes(x=lon, y=lat, fill=tempBIAS), shape=21, size=2, col="black") +
          scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-5,5))+
          coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
@@ -265,7 +265,7 @@ R --vanilla --args "${filein}" "${plotTemp}" "${plotPrec}" "${plotTempPRED}" "${
 
   pdf(args[7])
   ggplot() +
-         geom_map(data=spainMap, aes(map_id=region), map=spainMap, fill="ivory", col="grey") +
+         geom_map(data=worldMap, aes(map_id=region), map=worldMap, fill="ivory", col="grey") +
 	       geom_point(data=data, aes(x=lon, y=lat, fill=precipBIAS), shape=21, size=2, col="black") +
          scale_fill_gradient2(midpoint=0, low="royalblue3", mid="white", high="red3", limits=c(-5,5))+
          coord_map("lambert",lat0=30,lat1=65,xlim=c(-20,39), ylim=c(30,65))+
@@ -276,7 +276,7 @@ R --vanilla --args "${filein}" "${plotTemp}" "${plotPrec}" "${plotTempPRED}" "${
 dev.off()
 EOF
 
-#rm kkprueba*
+
 #for station in $synopID; do
 cat $filein | awk '{if ($1=='08434') print $0}' >> kkestacion-08434
 cat $filein | awk '{if ($1=='08220') print $0}' >> kkestacion-08220
