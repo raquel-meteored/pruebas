@@ -12,12 +12,13 @@
 DIR_DATA=/home/raquel/Data/SYNOP
 DIR_PLOT=/home/raquel/Plots/SYNOP
 AAAAMMDDHH=$1
+TP=$2
 fileinT2=${DIR_DATA}/VALIDA-T2-${AAAAMMDDHH}.txt
 fileinV10=${DIR_DATA}/VALIDA-V10-${AAAAMMDDHH}.txt
-fileinTP1h=${DIR_DATA}/VALIDA-TP1H-${AAAAMMDDHH}.txt
+fileinTP1h=${DIR_DATA}/VALIDA-$TP-${AAAAMMDDHH}.txt
 plotT2=${DIR_PLOT}/VALIDA-${AAAAMMDDHH}-T2
 plotV10=${DIR_PLOT}/VALIDA-${AAAAMMDDHH}-V10
-plotTP1h=${DIR_PLOT}/VALIDA-${AAAAMMDDHH}-TP1h
+plotTP1h=${DIR_PLOT}/VALIDA-${AAAAMMDDHH}-$TP
 
 R --vanilla --args "${fileinT2}" "${fileinV10}" "${fileinTP1h}" "${plotT2}" "${plotV10}" "${plotTP1h}" << EOF
   args = commandArgs(trailingOnly=TRUE)
