@@ -1,0 +1,505 @@
+#!/bin/bash
+####################################################################################
+### Extrae información sobre las estaciones de los SYNOP
+### Compara:
+#       - con las predicciones del ECWMF y de METEORED
+#       - para precipitación, t2m y v10m
+###
+### Creado en 06-2020
+# Raquel Lorente Plazas <raquel@meteored.com>
+# Marcos Molina Cano <marcos@meteored.com>
+# Juan Sanchez Segura <jsanchez@meteored.com>
+# Guillermo Ballester Valor <gbv@ogimet.com>
+###################################################################################
+# Nombre del script.
+scriptName=$(basename "$0")
+
+# Formato de fecha
+function datePID {
+	  echo "$(date -u +%Y/%m/%d\ %H:%M:%S.%6N) UTC [$$]"
+  }
+
+# Función que define la ayuda sobre este script.
+function showUse {
+  echo
+  echo "Uso: ${scriptName} HH [-d|--date AAAAMMDD] [-D|--Day -1|-2] [-h|--help]"
+  echo
+  echo "Opciones:"
+  echo "  HH"
+  echo "      00 para la pasada de las 00 UTC y 12 para la pasada de las 12 UTC."
+  echo "  [-d|--date AAAAMMDD|[-1|-2]]"
+  echo "      Puede ser AAAAMMDD que es la fecha de la pasada o -1 o -2 que es el número"
+  echo "      a restar al día actual. Por ejemplo, -1 sería la pasada de ayer y -2 sería antes de ayer."
+  echo "  [-h|--help]"
+  echo "      Se muestra esta ayuda."
+  echo ""
+}
+
+# Control de los argumentos imprescindibles.
+if [[ $# -eq 0 ]] ; then
+  showUse
+  exit 1
+
+elif [[ $# -gt 0 ]] ; then
+  #TODO ahora sólo esta pensado para la pasada de las 00 para las de las 12 hay que tener encuenta que el archivo empieza a esa hora
+  if [[ "$1" == "00" ]] ; then
+#  if [[ "$1" == "00" ]] || [[ "$1" == "12" ]] ; then
+    pasada="$1"
+  else
+    showUse
+    exit 1
+  fi
+
+fi
+
+# Valores opcionales.
+fecha=$(date -u +%Y%m%d)
+regfecha="^[0-9]{8}$"
+
+# Control del resto de argumentos opcionales.
+TEMP=$(getopt -n ${scriptName} -o d:D:h --long date:,Day:,help -- "$@")
+[[ $? -eq 0 ]] || { echo "Error: getopt ha devuelto un código distinto de 0." ; showUse; exit 1 ; }
+eval set -- "${TEMP}"
+
+while true ; do
+
+  case "$1" in
+
+    -d|--date)
+      shift
+      if [[ $1 =~ ${regfecha} ]] ; then
+        fecha=$1
+      else
+        echo "Error: $1 no tiene formato de fecha válido." >&2
+        exit 1
+      fi
+      ;;
+
+    -D|--Day)
+      shift
+      [[ $1 =~ ${regneg} ]] && [[ $1 -le 0 ]] && [[ $1 -ge -2 ]] && day_des=$1 || { echo "Error: $1 debe un número de días para restar o sumar al actual." >&2; exit 1; }
+      fecha=$(date -u +%Y%m%d --date="${day_des} days")
+      ;;
+
+    -h|--help)
+      showUse
+      exit ;;
+
+    --)
+       shift
+       break ;;
+
+    *)
+      echo "Internal error!"
+      exit 1;;
+
+  esac
+  shift
+done
+
+# Valores por defecto.
+YYYYMMDDHH=${fecha}${pasada}
+YYYY=$(echo "${fecha}" | cut -c1-4)
+MM=$(echo "${fecha}" | cut -c5-6)
+DD=$(echo "${fecha}" | cut -c7-8)
+
+#Hay que coger un día completo para desacumular la precip de los SYNOP
+fechaini=${fecha}0000
+fechafin=$(date -d"00:00 ${fecha} +25 hours" +"%Y%m%d%H%M")
+
+LIM=350 #maxímo número de segundos de descarga
+TIMEOUT=60 #máximo número de segundos intentando conectarse
+
+#Comprobación de que existen los directorios
+DIR_BASE=/home/raquel/repos/pruebas/VALIDA
+DIR_DATA=/home/raquel/Data/SYNOP
+DIR_PLOTS=/home/raquel/Plots/SYNOP
+PREFIX=${DIR_BASE}
+
+mkdir -p ${DIR_DATA} ${DIR_PLOTS}
+
+# Definición de ficheros necesarios.
+finishedFile="${PREFIX}"/finished_"${scriptName}"_"${fecha}"_"${pasada}"
+lockFile="${PREFIX}"/${scriptName}.lock
+
+# Se comprueba si la tarea ya se ha realizado.
+test -e "${finishedFile}" && exit
+
+# Si existe el fichero de bloqueo y tiene menos de X minutos termina.
+if [[ -e "${lockFile}" ]]; then
+
+  if [[ $(stat -c %Y "${lockFile}") -lt $(date -u +%s --date="20 minutes ago") ]]; then
+    echo "$(datePID): Archivo de bloqueo demasiado antiguo. Borrando y creando..."
+    touch "${lockFile}"
+  else
+    echo "$(datePID): Archivo de bloqueo existente. Saliendo..."
+    exit
+  fi
+
+else
+  echo "$(datePID) - Inicio"
+  touch "${lockFile}"
+fi
+
+# Comprobación de que existe software para optimizar.
+Rscript="/usr/bin/Rscript"
+Jsonjq="/usr/bin/jq"
+#TODO quitar el which
+GRIB_GET=$(which grib_get)
+
+command -v ${Rscript} > /dev/null 2>&1 || { echo "$(datePID): ${Rscript} no está instalado." && exit 1; }
+command -v ${GRIB_GET} > /dev/null 2>&1 || { echo "$(datePID): ${GRIB_GET} no está instalado." && exit 1; }
+command -v ${Jsonjq} > /dev/null 2>&1 || { echo "$(datePID): ${Jsonjq} no está instalado." && exit 1; }
+
+#Comprueba si exite el programa que pinta la validación
+Rpinta="${DIR_BASE}/ecmwf_pinta_validacion.R"
+if [[ ! -e "${Rpinta}" ]]; then
+   echo No existe "${Rpinta}"
+fi
+
+#Comprobación de que existen los gribs para la validación
+fnameGRIB=/home/ecmwf/${YYYYMMDDHH}/ECMWF_${YYYYMMDDHH}_001.grb
+
+if [[ ! -f ${fnameGRIB} ]]; then
+  echo $fnameGRIB does not exist
+  rm $lockFile
+  exit
+fi
+
+##Descarga SYNOP coord y info
+echo "$(datePID): Inicia descarga de SYNOP" >> check_tiempo_$scriptName.txt
+fnameSYNOP=${DIR_BASE}/synop-${fechaini}-${fechafin}.json #datos
+if [[ ! -e ${fnameSYNOP} ]] ; then
+  #curl -s -m $LIM --connect-timeout $TIMEOUT "http://aire.ogimet.com/cgi-bin/getsynop?begin=${fechaini}00&end=${fechafin}00&state=%25&format=json" -o $fnameSYNOP
+  curl -s -m $LIM --connect-timeout $TIMEOUT "https://www.ogimet.com/cgi-bin/getsynop?begin=${fechaini}00&end=${fechafin}00&state=Spa&format=json" -o $fnameSYNOP
+fi
+echo "$(datePID): Fin descarga de SYNOP" >> check_tiempo_$scriptName.txt
+
+synopID=$(jq '.[] | select ( .dia == "'$DD'" and .hora == "00") | .estacion' ${fnameSYNOP} | tr "\"" " ")
+synopID="08044"
+
+#Resolución temporal de la precipitación
+#prec_tr es el código y prec_res la resolución correspondiente en horas
+horas=($(seq -w 0 23))
+prec_res=(6 1 1 3 1 1 12 1 1 3 1 1 6 1 1 3 1 1 12 1 1 3 1 1)
+prec_tr=(1 5 5 7 5 5 2 5 5 7 5 5 1 5 5 7 5 5 2 5 5 7 5 5)
+
+echo "$(datePID) Inicio loop estaciones" >> check_tiempo_$scriptName.txt
+
+for station in ${synopID}; do
+
+  fnamePREDIC=${DIR_DATA}/PREDIC-"${station}".json
+  fnameVALIDAt2=${DIR_DATA}/validat2-"${station}".txt
+  fnameVALIDAv10=${DIR_DATA}/validav10-"${station}".txt
+  fnameVALIDAtp1h=${DIR_DATA}/validaPREC-"${station}".txt
+
+  #Coordenadas
+  lat=$(jq '.[] | select (.estacion == "'$station'" ) | .latitud' ${fnameSYNOP} | head -1)
+  lon=$(jq '.[] | select (.estacion == "'$station'" ) | .longitud' ${fnameSYNOP} | head -1)
+  alt=$(jq '.[] | select (.estacion == "'$station'" ) | .altitud' ${fnameSYNOP} | head -1)
+
+  #Descarga forecast info del json file en la localidad del SYNOP
+  echo "$(datePID): Inicio descarga de json" >> check_tiempo_$scriptName.txt
+  curl -s -m $LIM --connect-timeout $TIMEOUT 'http://aguila.ogimet.com/cgi-bin/otf12?latitud='$lat'&longitud='$lon'&altitud='$alt'&zonaHoraria=etc/UTC&name='$station'' -o "${fnamePREDIC}"
+  echo "$(datePID): Fin descarga de json" >> check_tiempo_$scriptName.txt
+
+  echo "$(datePID) Inicio loop horas $station" >> check_tiempo_$scriptName.txt
+  for i in $(seq 0 23);do
+    #FECHAS
+    hora=${horas[$i]}
+    fechaSYNOP=$(echo $YYYY$MM$DD$hora)
+
+    #Nos quedamos con las secciones del SYNOP
+    jq '.[] | select (.estacion == "'$station'" and .dia == "'$DD'" and .hora == "'${hora}'") | .parte' ${fnameSYNOP} > parteSYNOP
+
+    #Dentro de las secciones del SYNOP buscamos, T2m, V10m y Precip:
+
+    echo "$(datePID) Inicio precipitacion $station" >> check_tiempo_$scriptName.txt
+
+    ##PRECIPITACIÓN
+    #grupo 6 es precipitación 6PPPtr; donde prec_tr es la resolucion temporal
+    #TODO si "ir" es 3 ó 4 para algún paso ya no puedo calcular la precip horaria
+    #indicador de inclusión de precip (sec 1 grupo irixhVV)
+    #ir=0 en Sec 1 y 3, ir=1 en Sec 1, ir=2 en Sec 3, ir=3y4 no hay precip.
+    ir=$(cat parteSYNOP | cut -d' ' -f4 | cut -c1)
+    if [[ "$ir" -le 2 ]]; then
+      #Quitamos las 5 primeras columnas; porque pueden empezar por 6 sin ser precip, como la nubosidad
+      sec1gr6=$(cat parteSYNOP | cut -d' ' -f5- | grep -o '[6][0-9][0-9][0-9]['${prec_tr[$i]}']')
+      #Puede haber más info de prec empezando por 6, nos quedamos con la internacional sec1gr6[0]
+      #lenPrecip=${#sec1gr6[@]}
+      trace=${sec1gr6[0]:1:2}
+
+      #Si PP=99 entonces la otra P son décimas de precipitación
+      if [[ $trace -eq '99' ]]; then
+        precSYNOP=$(echo "scale=4;${sec1gr6[0]:3:1}*0.1" | bc)
+      else
+        precSYNOP=${sec1gr6[0]:1:3}
+      fi
+
+      #Construimos un vector para poder desacumular: 1h, 3h y 24h
+      #horas1h="01 02 04 05 07 08 10 11 13 14 16 17 19 20 22 23"
+      #horas3h="03 09 15 21"
+      #horas6h="00 12"
+      #horas12h="06 18"
+      PRECIP["$i"]=$precSYNOP
+
+      if [[ "${hora}" == 03 ]]; then
+
+        tp1hSYNOP=$(echo ${PRECIP[3]} - ${PRECIP[2]} - ${PRECIP[1]} | bc )
+        #precip3h=${PRECIP[3]}
+        #echo ${DD} ${hora} $precip3h $sec1gr6  >> ts-precip3h-$station
+
+      elif [[ "${hora}" == 06 ]]; then
+
+        tp1hSYNOP=$(echo ${PRECIP[0]} - ${PRECIP[3]} - ${PRECIP[4]} - ${PRECIP[5]} | bc )
+        #precip3h=$(echo ${PRECIP[0]} - ${PRECIP[3]} | bc )
+        #echo ${DD} ${hora} $precip3h $sec1gr6  >> ts-precip3h-$station
+
+      elif [[ "${hora}" == 09 ]]; then
+
+        tp1hSYNOP=$(echo ${PRECIP[9]} - ${PRECIP[7]} - ${PRECIP[8]} | bc )
+        #precip3h=${PRECIP[9]}
+        #echo ${DD} ${hora} $precip3h $sec1gr6  >> ts-precip3h-$station
+
+      elif [[ "${hora}" == 12 ]]; then
+
+        tp1hSYNOP=$(echo ${PRECIP[12]} - ${PRECIP[9]} - ${PRECIP[10]} - ${PRECIP[11]} | bc )
+        #precip3h=$(echo ${PRECIP[12]} - ${PRECIP[9]} | bc)
+        #echo ${DD} ${hora} $precip3h $sec1gr6  >> ts-precip3h-$station
+
+      elif [[ "${hora}" == 15 ]]; then
+
+        tp1hSYNOP=$(echo ${PRECIP[15]} - ${PRECIP[13]} - ${PRECIP[14]} | bc )
+        #precip3h=${PRECIP[15]}
+        #echo ${DD} ${hora} $precip3h $sec1gr6  >> ts-precip3h-$station
+
+      elif [[ "${hora}" == 18 ]]; then
+
+        tp1hSYNOP=$(echo ${PRECIP[18]} - ${PRECIP[12]} - ${PRECIP[15]} - ${PRECIP[16]} - ${PRECIP[17]}| bc )
+        #precip3h=$(echo ${PRECIP[18]} - ${PRECIP[12]} - ${PRECIP[15]} | bc )
+        #echo ${DD} ${hora} $precip3h $sec1gr6  >> ts-precip3h-$station
+
+      else
+
+        tp1hSYNOP=${PRECIP["$i"]}
+
+      fi
+
+      echo ${DD} ${hora} $tp1hSYNOP $sec1gr6 ${prec_res[$i]} $ir ${prec_tr[$i]} $i  >> ts-precip1h-$station
+    else
+      echo $ir $station $hora >> no-precip
+    fi #if ir
+
+    echo "$(datePID) Fin precipitacion $station" >> check_tiempo_$scriptName.txt
+
+    #Cálculos trihorarios, sino es múltiplo de 3 seguimos
+    multiple=$(( ${i} % 3 ))
+
+    if [[ $multiple -ne 0 || ${hora} -eq 0 ]]; then
+        echo $hora no es multiplo de 3
+        continue
+    fi
+
+    ##TEMPERATURA
+    #grupo 1 es temperatura 1SnTTT; donde Sn es el signo
+    sec1gr1=($(cat parteSYNOP | cut -d' ' -f5-  | grep -o '[1][0-1][0-9][0-9][0-9]'))
+    SN=${sec1gr1[0]:1:1} #Nos da el signo
+    temp=${sec1gr1[0]:2:3} #Valor temp
+
+    if [[ -z $temp ]]; then
+      tempSYNOP=NAN
+    else
+      if [[ $SN -eq 1 ]]; then
+        tempSYNOP=$(echo "scale=4;${temp}*-0.1" | bc)
+      else
+        tempSYNOP=$(echo "scale=4;${temp}*0.1" | bc)
+      fi
+    fi
+
+    ##VIENTO
+    #Sec. 1 grupo Nddff es viento dd dirección y ff velocidad (columna 5)
+    #Para saber la unidades; Sec. 0 grupo YYGGiw (iw nudos o m/s)
+    sec0gr1=$(cat parteSYNOP | awk '{print $2}')
+    iw=${sec0gr1:4:1} #Nos da las unidades
+    sec1grN=$(cat parteSYNOP | awk '{print $5}')
+    vv=${sec1grN:3:2}
+
+    #Unidades en m/s
+    if [[ -z $vv ]]; then
+      windSYNOP=NAN
+    else
+      if [[ $iw -gt 3 ]]; then
+        windSYNOP=$(echo "scale=4;${vv}*0.514" | bc)
+      else
+        windSYNOP=${sec1grN:3:2}
+      fi
+    fi
+
+    echo "$(datePID) Inicio validacion $hora $station" >> check_tiempo_$scriptName.txt
+
+    ##ECMWF: Grib con datos del ECMWF en bruto
+    PROY=$(printf '%03g' $hora)
+    fnameGRIB=/home/ecmwf/${YYYYMMDDHH}/ECMWF_${YYYYMMDDHH}_${PROY}.grb
+
+    #Se vuelve a comprobar la existencia del grib
+    if [[ ! -f ${fnameGRIB} ]]; then
+      echo $fnameGRIB does not exist
+      rm $lockFile
+      exit
+    fi
+
+    #TODO la tp está horaria pero porque está post-procesada
+    #Estamos cogiendo cada 3h pero no el acumulado, sino horario
+    #PROY_INI=$(echo ${PROY} - 1 | bc)
+    #tp1h=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=tp,stepRange=${PROY_INI}-${i} -p date,step ${fnameGRIB}))
+    #tp1hGRIB=$(LANG=C printf '%12.8f' ${tp1h[2]}) #LANG=C para puntos en vez de comas
+    #tp1hECMWF=$(echo ${tp1hGRIB} *1000  | bc) #Unidades de m en el grib
+
+    temp2t=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=2t -p date,step ${fnameGRIB}))
+    v10=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=10v -p date,step ${fnameGRIB}))
+    u10=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=10u -p date,step ${fnameGRIB}))
+    tempECMWF=$(echo ${temp2t[2]} - 273.15 | bc )
+    windECMWF=$(echo ${v10[2]} ${u10[2]} | awk '{print sqrt ($1*$1 + $2*$2)}')
+
+    paso=$(echo "${temp2t[1]}" + "${pasada}" | bc)
+    # fechaECMWF=$(echo  "${temp2t[0]}"*10000 +  "$paso"*100 | bc)
+    fechaECMWF=$(date -d"00 ${temp2t[0]} +$paso hours" +"%Y%m%d%H" | bc)
+
+    ##METEORED: Comparamos con la predicción de meteored dentro de un json
+    #Buscamos la hora unix correspondiente a la UTC del SYNOP
+    fechaPRED=$( echo $(date -u -d "${fechaECMWF:0:4}-${fechaECMWF:4:2}-${fechaECMWF:6:2} ${fechaECMWF:8:2}:00:00" "+%s")*1000 | bc )
+
+    #precPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .precipitacion.valor' $fnamePREDIC)
+    tempPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .temperatura.valor' $fnamePREDIC)
+    vvPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .viento.velocidad' $fnamePREDIC)
+    windPRED=$(echo "scale=4;${vvPRED}*0.28" | bc)
+    horaPRED=$(jq '.dias[].horas[] | select (.utime == '$fechaPRED') | .hora' $fnamePREDIC)
+
+    #Estadísticos
+    #precBIAS_PRED=$(echo $precPRED - $tp1hSYNOP | bc)
+    tempBIAS_PRED=$(echo $tempPRED - $tempSYNOP | bc)
+    windBIAS_PRED=$(echo $windPRED - $windSYNOP | bc)
+
+    #precBIAS_ECMWF=$(echo $tp1hECMWF - $tp1hSYNOP | bc)
+    tempBIAS_ECMWF=$(echo $tempECMWF - $tempSYNOP | bc)
+    windBIAS_ECMWF=$(echo $windECMWF - $windSYNOP | bc)
+
+    #if [[ -z $tp1hSYNOP ]]; then
+    #  tp1hSYNOP=NAN
+    #  precBIAS_ECMWF=NAN
+    #  precBIAS_PRED=NAN
+    #fi
+
+    if [[ -z $tempSYNOP ]]; then
+      tempSYNOP=NAN
+      tempBIAS_PRED=NAN
+      tempBIAS_ECMWF=NAN
+    fi
+
+    if [[ -z $windSYNOP ]]; then
+      windSYNOP=NAN
+      windBIAS_ECMWF=NAN
+      windBIAS_PRED=NAN
+    fi
+
+    echo $station $lon $lat synop=$fechaSYNOP e=$fechaECMWF $tempSYNOP $tempPRED $tempECMWF ${tempBIAS_PRED} ${tempBIAS_ECMWF} ${horaPRED} | grep -v "NAN" >> t2
+    echo $station $lon $lat synop=$fechaSYNOP e=$fechaECMWF $windSYNOP $windPRED $windECMWF ${windBIAS_PRED} ${windBIAS_ECMWF} ${horaPRED} | grep -v "NAN" >> v10
+    #echo $station $lon $lat synop=$fechaSYNOP e=$fechaECMWF $tp1hSYNOP $precPRED $tp1hECMWF ${precBIAS_PRED} ${precBIAS_ECMWF} ${horaPRED} | grep -v "NAN" >> tp1h
+    rm parteSYNOP
+  done #loop hora
+  echo "$(datePID) Fin - loop horas $station " >> check_tiempo_$scriptName.txt
+
+  #Renombrar archivos para que se machaquen
+  mv t2 ${fnameVALIDAt2}
+  mv v10 ${fnameVALIDAv10}
+ # mv tp1h ${fnameVALIDAtp1h}
+ # mv ts-precip3h-"$station" ${DIR_DATA}/PRECIP3h-"$station"-"${fechaini}".txt
+  mv ts-precip1h-"$station" ${DIR_DATA}/PRECIP1h-"$station"-"${fechaini}".txt
+
+  #Promedios temporales
+  temp_MEAN_SYNOP=$(cat "${fnameVALIDAt2}" | grep -v "NAN" | awk '{s+=$6}END{print s}' )
+  temp_MEAN_PRED=$(cat "${fnameVALIDAt2}" | grep -v "NAN" | awk '{s+=$7}END{print s}' )
+  temp_MEAN_ECMWF=$(cat "${fnameVALIDAt2}" | grep -v "NAN" | awk '{s+=$8}END{print s}' )
+  temp_meanBIAS_PRED=$(cat "${fnameVALIDAt2}"| grep -v "NAN" | awk '{s+=$9}END{print s}' )
+  temp_meanBIAS_ECMWF=$(cat "${fnameVALIDAt2}" | grep -v "NAN" | awk '{s+=$10}END{print s}' )
+  temp_RMSE_PRED=$(cat "${fnameVALIDAt2}" | grep -v "NAN" | awk '{print $9^2}'  | awk '{s+=$1}END{print s}' )
+
+  wind_MEAN_SYNOP=$(cat "${fnameVALIDAv10}" | grep -v "NAN" | awk '{s+=$6}END{print s}' )
+  wind_MEAN_PRED=$(cat "${fnameVALIDAv10}" | grep -v "NAN" | awk '{s+=$7}END{print s}' )
+  wind_MEAN_ECMWF=$(cat "${fnameVALIDAv10}" | grep -v "NAN" | awk '{s+=$8}END{print s}' )
+  wind_meanBIAS_PRED=$(cat "${fnameVALIDAv10}" | grep -v "NAN" | awk '{s+=$9}END{print s}' )
+  wind_meanBIAS_ECMWF=$(cat "${fnameVALIDAv10}" | grep -v "NAN" | awk '{s+=$10}END{print s}' )
+  wind_RMSE_PRED=$(cat "${fnameVALIDAv10}" | grep -v "NAN" | awk '{print $9^2}'  | awk '{s+=$1}END{print s}' )
+
+  #tp1h_MEAN_SYNOP=$(cat "${fnameVALIDAtp1h}" | grep -v "NAN" | awk '{s+=$6}END{print s}' )
+  #tp1h_MEAN_PRED=$(cat "${fnameVALIDAtp1h}" | grep -v "NAN" | awk '{s+=$7}END{print s}' )
+  #tp1h_MEAN_ECMWF=$(cat "${fnameVALIDAtp1h}" | grep -v "NAN" | awk '{s+=$8}END{print s}' )
+  #tp1h_meanBIAS_PRED=$(cat "${fnameVALIDAtp1h}" | grep -v "NAN" | awk '{s+=$9}END{print s}' )
+  #tp1h_meanBIAS_ECMWF=$(cat "${fnameVALIDAtp1h}" | grep -v "NAN" | awk '{s+=$10}END{print s}' )
+  #tp1h_RMSE_PRED=$(cat "${fnameVALIDAtp1h}" | grep -v "NAN" | awk '{print $9^2}'  | awk '{s+=$1}END{print s}' )
+
+  npasos=$(cat ${fnameVALIDAt2}| grep -v "NAN"| wc -l )
+  if [[ ! -z $npasos && $npasos -gt 0 ]]; then
+    echo "${station}" "$lon" "$lat" "${temp_MEAN_SYNOP}" "${temp_MEAN_PRED}" "${temp_MEAN_ECMWF}" "${temp_meanBIAS_PRED}" "${temp_meanBIAS_ECMWF}" | awk '{print $1,$2,$3,$4/'$npasos',$5/'$npasos',$6/'$npasos',$7/'$npasos',$8/'$npasos'}' >> biast2
+  fi
+
+  npasos=$(cat ${fnameVALIDAv10}| grep -v "NAN"| wc -l )
+  if [[ ! -z $npasos && $npasos -gt 0 ]]; then
+    echo "${station}" "$lon" "$lat" "${wind_MEAN_SYNOP}" "${wind_MEAN_PRED}" "${wind_MEAN_ECMWF}" "${wind_meanBIAS_PRED}" "${wind_meanBIAS_ECMWF}" | awk '{print $1,$2,$3,$4/'$npasos',$5/'$npasos',$6/'$npasos',$7/'$npasos',$8/'$npasos'}' >> biasv10
+  fi
+
+  #npasos=$(cat ${fnameVALIDAtp1h}| grep -v "NAN"| wc -l )
+  #if [[ ! -z $npasos && $npasos -gt 0 ]]; then
+  #  echo "${station}" "$lon" "$lat" "${tp1h_MEAN_SYNOP}" "${tp1h_MEAN_PRED}" "${tp1h_MEAN_ECMWF}" "${tp1h_meanBIAS_PRED}" "${tp1h_meanBIAS_ECMWF}" | awk '{print $1,$2,$3,$4/'$npasos',$5/'$npasos',$6/'$npasos',$7/'$npasos',$8/'$npasos'}' >> biastp1h
+  #fi
+
+  #PRECIP diaria
+  ##SYNOP
+  tp24hSYNOP=$(echo ${PRECIP[6]} - ${PRECIP[0]} + ${PRECIP[18]} + ${PRECIP[21]} + ${PRECIP[22]} + ${PRECIP[23]} | bc )
+  echo ${DD} $tp24hSYNOP $station >> ts-PRECIP24h.txt
+
+  echo "$(datePID) Inicio valida 24h precip." >> check_tiempo_$scriptName.txt
+  if [[ ! -z "${tp24hSYNOP}" ]]; then
+    ##GRIB
+    #TODO paso 024 sólo funciona si es pasada 00
+    fnameGRIB24=/home/ecmwf/${YYYYMMDDHH}/ECMWF_${YYYYMMDDHH}_024.grb
+    tp24h=($(${GRIB_GET} -l ${lat},${lon},1 -w shortName=tp,stepRange=0-24 -p date,step ${fnameGRIB24}))
+    tp24hGRIB=$(LANG=C printf '%12.8f' ${tp24h[2]} | tr "," ".")
+    tp24hECMWF=$(echo "${tp24hGRIB}" *1000 | bc)
+    ##METEORED
+    tp24hPRED=$(jq '.dias[] | select (.dia == '$YYYY''$MM''$DD') | .precipitacion.valor' $fnamePREDIC)
+    #Estadísticos
+    tpBIAS_PRED=$(echo "$tp24hPRED" - "$tp24hSYNOP" | bc)
+    tpBIAS_ECMWF=$(echo "$tp24hECMWF" - "$tp24hSYNOP" | bc)
+    echo "${station}" "$lon" "$lat" "${tp24hSYNOP}" "${tp24hPRED}" "${tp24hECMWF}" "${tpBIAS_PRED}" "${tpBIAS_ECMWF}" >> biastp24h
+  fi
+
+  echo "$(datePID) Fin valida 24h precip." >> check_tiempo_$scriptName.txt
+
+echo "$(datePID) Fin $station" >> check_tiempo_$scriptName.txt
+done #loop stations
+echo "$(datePID) Fin loop estaciones" >> check_tiempo_$scriptName.txt
+
+mv ts-PRECIP24h.txt ${DIR_DATA}/PRECIP24h-"${fechaini}".txt
+mv biast2 "${DIR_DATA}"/VALIDA-T2-"${YYYYMMDDHH}".txt
+mv biasv10 "${DIR_DATA}"/VALIDA-V10-"${YYYYMMDDHH}".txt
+#mv biastp1h "${DIR_DATA}"/VALIDA-TP1H-"${YYYYMMDDHH}".txt
+mv biastp24h "${DIR_DATA}"/VALIDA-TP24H-"${YYYYMMDDHH}".txt
+
+#Pinta datos con R
+fileinT2=${DIR_DATA}/VALIDA-T2-${YYYYMMDDHH}.txt
+fileinV10=${DIR_DATA}/VALIDA-V10-${YYYYMMDDHH}.txt
+fileinTP1h=${DIR_DATA}/VALIDA-TP24H-${YYYYMMDDHH}.txt
+plotT2=${DIR_PLOTS}/VALIDA-${YYYYMMDDHH}-T2
+plotV10=${DIR_PLOTS}/VALIDA-${YYYYMMDDHH}-V10
+plotTP1h=${DIR_PLOTS}/VALIDA-${YYYYMMDDHH}-TP24H
+
+echo "$(datePID) Pinta gráficas" >> check_tiempo_$scriptName.txt
+Rscript --vanilla "${Rpinta}"  "${fileinT2}" "${fileinV10}" "${fileinTP1h}" "${plotT2}" "${plotV10}" "${plotTP1h}"
+#bash -x ecmwf_pinta_validacion.sh "${YYYYMMDDHH}" TP24H
+echo "$(datePID) Fin pinta gráficas" >> check_tiempo_$scriptName.txt
+
+# Se borra fichero de bloqueo y se crea fichero de finalización.
+rm "${lockFile}"
+touch "${finishedFile}"
+echo "$(datePID) - Fin" >> check_tiempo_$scriptName.txt
