@@ -16,6 +16,11 @@ i=1; while printf '%d' "$((i++))"; (( i <= 100)); do
     lon="$long"
   fi
 
+  if [[ -z "$lat" ]]; then
+    continue
+  fi
+
+
   curl -m 10 --connect-timeout 30  'http://localhost/cgi-bin/otf_synop2?latitud='$lat'&longitud='$lon'&radio=1000' -o tmp.json
   jq .[] tmp.json >/dev/null
   check=$?
@@ -28,59 +33,72 @@ i=1; while printf '%d' "$((i++))"; (( i <= 100)); do
   if [[ $(jq '.ok' tmp.json) != "false" ]]; then
       dist=$(jq '.Distancia' tmp.json )
       tiempo=$(jq '.Tiempo' tmp.json )
-      ult_hora=$(jq '.synop[].hora' tmp.json | tail -1)
+      ult_hora=$(jq '.synop[].hora' tmp.json | tail -1 | tr "\"" " " )
       name=$(jq '.nombre' tmp.json )
-
-      valor=$(jq '.synop[].precipitacion.valor' tmp.json )
-      tr=$(jq '.synop[].tr' tmp.json )
-      hora=$(jq '.synop[].hora' tmp.json )
 
       jq '.synop[].precipitacion.valor' tmp.json > tmp3
       jq '.synop[].tr' tmp.json > tmp2
       jq '.synop[].hora' tmp.json > tmp1
 
-      paste tmp1 tmp2 tmp3 | tr "\"" " " >> chequeo_PR_situacion_actual.txt
+      paste tmp1 tmp2 tmp3 | tr "\"" " " >> chequeo_situacion_actual_PR.txt
 
-      #VAR3=$( paste <(echo "$hora") <(echo "$valor") <(echo -e "$name" "\n") )
 
   fi
 
-  if [[ -z "${name}" ]]; then
+  if [[ $(jq '.ok' tmp.json) == "false" ]]; then
 
-    echo $i $lat $lon false >> ${DIR_BASE}/chequeo_situacion_actual.txt
+    echo false $lat $lon  >> ${DIR_BASE}/chequeo_situacion_actual_false.txt
 
   else
 
-    echo $i $name $lat $lon ${ult_hora} $dist $tiempo >> ${DIR_BASE}/chequeo_situacion_actual.txt
+    echo  ${ult_hora} $dist $tiempo $lat $lon $name >> ${DIR_BASE}/chequeo_situacion_actual_dist.txt
 
   fi
 
-  mv tmp.json kk_"$i".json
+  #mv tmp.json kk_"$i".json
 
 done
 
-exit
-#for hora in $(seq -w 1 23);do
+for hora in $(seq -w 1 23);do
 
-#   ndato=$(cat ${DIR_BASE}/chequeo_precip_synop.txt | awk '{if ($1=='$hora' && $2==01) print $0}' | wc -l)
-#   echo 01 $hora $ndato >> tmp1
-#   ndato=$(cat ${DIR_BASE}/chequeo_precip_synop.txt | awk '{if ($1=='$hora' && $2==03) print $0}' | wc -l)
-#   echo 03 $hora $ndato >> tmp2
+   ndato1=$(cat ${DIR_BASE}/chequeo_situacion_actual_PR.txt | awk '{if ($1=='$hora' && $2==1) print $0}' | wc -l)
 
-#done
-#awk '{if (NF==3) print $0}' tmp1 > ${DIR_BASE}/chequeo_precip_01.txt
-#awk '{if (NF==3) print $0}' tmp2 > ${DIR_BASE}/chequeo_precip_03.txt
+   ndato3=$(cat ${DIR_BASE}/chequeo_situacion_actual_PR.txt | awk '{if ($1=='$hora' && $2==03) print $0}' | wc -l)
+
+   if [[ -z "$ndato1" ]];then
+       ndato1=0
+   fi
+
+      if [[ -z "$ndato3" ]];then
+       ndato3=0
+   fi
+
+   echo $hora 1 $ndato1 3 $ndato3  >> tmp2
+
+done
+awk '{if (NF==3) print $0}' tmp1 > ${DIR_BASE}/chequeo_precip_01.txt
+awk '{if (NF==3) print $0}' tmp2 > ${DIR_BASE}/chequeo_precip_03.txt
 
 #rm tmp*
 
 cat>inR2<<EOF
-sitact=read.table("${DIR_BASE}/chequeo_situacion_actual.txt")
-prec=read.table("${DIR_BASE}/chequeo_PR_situacion_actual.txt")
+sitact=read.table("${DIR_BASE}/chequeo_situacion_actual_dist.txt")
+prec=read.table("${DIR_BASE}/chequeo_situacion_actual_PR.txt")
 
-pdf("${DIR_BASE}/accum_precip.pdf")
-plot(prec01[,2],prec01[,3], type="b", col="blue2",lwd=2,xlab="Horas",ylab="Número estaciones")
-lines(prec03[,2],prec03[,3], col="tomato", lwd="2", type="b")
-legend("topright",c("1 h","3 h"),col=c("blue2","tomato"),lty=c(1,1), lwd=c(2,2),title="Acumulado")
+pr1h=subset(prec,prec[,2]=1)
+pr3h=subset(prec,prec[,2]=3)
+
+n1h=length(pr1h)
+n3h=length(pr3h)
+
+pdf("${DIR_BASE}/hist_dist.pdf")
+hist(sitact[,2], main="Distacia synop petición", xlab="Distacia (m)")
+
+pdf("${DIR_BASE}/hist_tiempo.pdf")
+hist(sitact[,3], main="Tiempo synop petición", xlab="Tiempo (s)")
+
+
+
 
 dev.off()
 q()
