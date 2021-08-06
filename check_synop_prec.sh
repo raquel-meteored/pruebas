@@ -54,7 +54,6 @@ i=1; while printf '%d' "$((i++))"; (( i <= 100)); do
 
 done
 
-
 #Analisis por horas
 for hora in $(seq -w 0 23);do
 
@@ -78,7 +77,6 @@ for hora in $(seq -w 0 23);do
 
 done
 
-
 awk '{if (NF==6) print $0}' tmp-prec > ${DIR_BASE}/chequeo_PR.txt
 awk '{if (NF==3) print $0}' tmp-fallos > ${DIR_BASE}/chequeo_fallos.txt
 rm tmp-prec tmp-fallos
@@ -89,25 +87,57 @@ sitact=read.table("${DIR_BASE}/chequeo_situacion_actual_dist.txt")
 prechoras=read.table("${DIR_BASE}/chequeo_PR.txt")
 fallos=read.table("${DIR_BASE}/chequeo_fallos.txt")
 
+
+
+
 totales=numeric(length(fallos[,2]))
 totales=fallos[,3] + fallos[,2]
 
-pdf("${DIR_BASE}/hist_dist.pdf")
-hist(sitact[,2], main="Distancia entre synop y la petición", xlab="Distacia (m)",xaxp=c(0,200,20),col="lightyellow")
+png("${DIR_BASE}/hist_dist.png")
+hist(subset(sitact[,2],sitact[,2]<110), main="Distancia entre synop y la petición", xlab="Distacia (km)",xaxp=c(0,110,11),xlim=c(0,110),col="lightyellow",prob=TRUE)
 
-pdf("${DIR_BASE}/hist_tiempo.pdf")
+png("${DIR_BASE}/hist_tiempo.png")
 hist(sitact[,3], main="Tiempo desde la petición hasta synop disponible", xlab="Tiempo (s)", breaks = seq(0, 7200, 200),xaxp=c(0,7200,36),col="lightblue")
 
-pdf("${DIR_BASE}/horas_vs_fallos.pdf")
-plot(fallos[,1], 100*fallos[,3]/totales, type="b", xlab="Horas", ylab="% estaciones",col="blue", main="Porcentajes de estaciones sin dato",xaxp=c(0,23,23))
-#lines(fallos[,2],type="b",col="tomato")
-#legend("topright",lty=c(1,1),col=c("blue","tomato"),c("con datos","vacías"),title="Estaciones")
+png("${DIR_BASE}/horas_vs_fallos.png")
+plot(fallos[,1], 100*fallos[,3]/totales, type="b", xlab="Hora de petición", ylab="% estaciones",col="blue", main="Porcentajes de estaciones sin dato",xaxp=c(0,23,23))
+lines(fallos[,1],fallos[,2],type="b",col="tomato")
+legend("topright",lty=c(1,1),col=c("blue","tomato"),c("con datos","vacías"),title="Estaciones")
 
-pdf("${DIR_BASE}/horas_vs_estprec.pdf")
+png("${DIR_BASE}/horas_vs_estprec.png")
 lim=max(100*prechoras[,3]/prechoras[,6],100*prechoras[,5]/prechoras[,6])
-plot(prechoras[,1],100*prechoras[,3]/prechoras[,6],type="b", col="blue", ylim=c(0,lim), xlab="Horas", ylab="% estaciones", main="Estación con precip. horaria y trihoraria",xaxp=c(0,23,23))
-lines(100*prechoras[,5]/prechoras[,6],type="b",col="tomato")
+plot(prechoras[,1],100*prechoras[,3]/prechoras[,6],type="b", col="blue", ylim=c(0,lim), xlab="Hora con dato", ylab="% estaciones", main="Estación con precip. horaria y trihoraria",xaxp=c(0,23,23))
+lines(prechoras[,1],100*prechoras[,5]/prechoras[,6],type="b",col="tomato")
 legend("topright",lty=c(1,1),col=c("blue","tomato"),c("1h","3h"))
+
+distumb=seq(0,100,2)
+probdist=numeric(length(distumb))
+b=length(sitact[,2])
+
+for (i in 1:length(distumb)){
+  a=length(subset(sitact[,2],sitact[,2]<distumb[i]))
+  probdist[i]=100*a/b
+}
+
+png("${DIR_BASE}/probdist.png")
+plot(distumb,probdist,xlab="Distancia entre petición y observación (km)",ylab="Porcentajes de peticones con observación (%)")
+abline(h=50,col="red")
+abline(v=10,col="green")
+
+distumb=seq(0,7200,60)
+probdist=numeric(length(distumb))
+b=length(sitact[,3])
+
+for (i in 1:length(distumb)){
+  a=length(subset(sitact[,3],sitact[,3]<distumb[i]))
+  probdist[i]=100*a/b
+}
+
+png("${DIR_BASE}/probtiempo.png")
+plot(distumb,probdist,xlab="Tiempo entre petición y observación (s)",ylab="Porcentajes de peticones con observación (%)")
+abline(h=50,col="red")
+abline(v=3600,col="green")
+
 
 dev.off()
 q()
