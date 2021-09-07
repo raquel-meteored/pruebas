@@ -37,16 +37,20 @@ i=1; while printf '%d' "$((i++))"; (( i <= 100)); do
 
       dist=$(jq '.Distancia' tmp.json )
       tiempo=$(jq '.Tiempo' tmp.json )
-      ult_hora=$(jq '.synop[].hora' tmp.json | tail -1 | tr "\"" " " )
+      ult_hora=$(jq '.horas[].hora' tmp.json | tail -1 | tr "\"" " " | tr ":" " " | awk '{print $1}')
       name=$(jq '.nombre' tmp.json )
 
-      jq '.synop[].hora' tmp.json > tmp1
-      jq '.synop[].tr' tmp.json > tmp2
-      jq '.synop[].precipitacion.valor' tmp.json > tmp3
+      jq '.horas[].hora' tmp.json > tmp1
+      jq '.horas[].tr' tmp.json > tmp2
+      jq '.horas[].precipitacion.valor' tmp.json > tmp3
 
       paste tmp1 tmp2 tmp3 | tr "\"" " " >> ${DIR_BASE}/chequeo_situacion_actual_PR.txt
-      echo  ${ult_hora} $dist $tiempo $lat $lon $name >> ${DIR_BASE}/chequeo_situacion_actual_dist.txt
+      echo  ${ult_hora} $dist $tiempo $lat $lon $name | awk '{if (NF==7) print $0}' >> ${DIR_BASE}/chequeo_situacion_actual_dist.txt
 
+      if [[ ${ult_hora} > 10 ]]; then
+        echo ${ult_hora} $(jq '.horas[].nf' tmp.json | tail -1) | awk '{print $1/$2}' >> ${DIR_BASE}/chequeo_situacion_actual_restemp.txt
+      fi
+     
   else
     echo $(date -u '+%H') false $lat $lon  >> ${DIR_BASE}/chequeo_situacion_actual_false.txt
   fi
@@ -86,18 +90,19 @@ cat>inR2<<EOF
 sitact=read.table("${DIR_BASE}/chequeo_situacion_actual_dist.txt")
 prechoras=read.table("${DIR_BASE}/chequeo_PR.txt")
 fallos=read.table("${DIR_BASE}/chequeo_fallos.txt")
-
-
-
+restemp=read.table("${DIR_BASE}/chequeo_situacion_actual_restemp.txt")
 
 totales=numeric(length(fallos[,2]))
 totales=fallos[,3] + fallos[,2]
+
+png("${DIR_BASE}/hist_restemp.png")
+hist(restemp[,1], main="Resolución temporal", xlab="Res. Temp. (Horas)",xaxp=c(0,24,25),xlim=c(0,24),col="lightgreen",prob=TRUE)
 
 png("${DIR_BASE}/hist_dist.png")
 hist(subset(sitact[,2],sitact[,2]<110), main="Distancia entre synop y la petición", xlab="Distacia (km)",xaxp=c(0,110,11),xlim=c(0,110),col="lightyellow",prob=TRUE)
 
 png("${DIR_BASE}/hist_tiempo.png")
-hist(sitact[,3], main="Tiempo desde la petición hasta synop disponible", xlab="Tiempo (s)", breaks = seq(0, 7200, 200),xaxp=c(0,7200,36),col="lightblue")
+hist(subset(sitact[,3],sitact[,3]<7200), main="Tiempo desde la petición hasta synop disponible", xlab="Tiempo (s)", breaks = seq(0, 7200, 200),xaxp=c(0,7200,36),col="lightblue")
 
 png("${DIR_BASE}/horas_vs_fallos.png")
 plot(fallos[,1], 100*fallos[,3]/totales, type="b", xlab="Hora de petición", ylab="% estaciones",col="blue", main="Porcentajes de estaciones sin dato",xaxp=c(0,23,23))
