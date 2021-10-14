@@ -21,8 +21,12 @@ i=1; while printf '%d' "$((i++))"; (( i <= 100)); do
     continue
   fi
 
+
   #Pedimos situación actual
-  curl -s -m 20 --connect-timeout 60  'http://localhost/cgi-bin/otf_synop?latitud='$lat'&longitud='$lon'&radio=1000&check=true' -o tmp.json
+  rm -f tmp.json
+  echo $(date "+%s") $lat $lon $ntiempo >> ${DIR_BASE}/prueba-coord.txt
+  curl -s -m 20 --connect-timeout 60  'http://localhost/cgi-bin/otf_synop?latitud='$lat'&longitud='$lon'&radio=1000&check=true' -o ${DIR_BASE}/basura/sitactual_"$lon"_"$lat".json
+  cp ${DIR_BASE}/basura/sitactual_"$lon"_"$lat".json tmp.json
   jq .[] tmp.json >/dev/null 2>&1
   check=$?
 
@@ -96,7 +100,7 @@ totales=numeric(length(fallos[,2]))
 totales=fallos[,3] + fallos[,2]
 
 png("${DIR_BASE}/hist_restemp.png")
-hist(restemp[,1], main="Resolución temporal", xlab="Res. Temp. (Horas)",xaxp=c(0,24,25),xlim=c(0,24),col="lightgreen",prob=TRUE)
+hist(restemp[,1], main="Resolución temporal", xlab="Res. Temp. (Horas)",xaxp=c(0,24,12),xlim=c(0,24),col="lightgreen",prob=TRUE)
 
 png("${DIR_BASE}/hist_dist.png")
 hist(subset(sitact[,2],sitact[,2]<110), main="Distancia entre synop y la petición", xlab="Distacia (km)",xaxp=c(0,110,11),xlim=c(0,110),col="lightyellow",prob=TRUE)
