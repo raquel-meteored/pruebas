@@ -1,0 +1,99 @@
+#!/bin/bash 
+
+start='20210101'
+end='20211231'
+
+start=$(date -d $start +%Y%m%d)
+end=$(date -d $end +%Y%m%d)
+
+while [[ $start -le $end ]]
+do
+  #echo $(date -d $start +%Y%m%d)
+  start=$(date -d"$start + 1day" +"%Y%m%d")
+  echo ${start} 00 >> filedate 
+  echo ${start} 12 >> filedate
+done
+
+while read fecha pasada;do
+#fechas
+#pasada=$1
+#fecha=$2
+#fecha=$(date -u +%Y%m%d)
+
+fechaCSV=$(date -d"${fecha}" +"%Y-%m-%d")
+fechaini="${fecha}""${pasada}"00
+YYYY="${fecha:0:4}"
+MM="${fecha:4:2}"
+
+#paths
+PREFIX="/home/cep"
+DIR_VALIDA="${PREFIX}"/validacion
+DIR_DATA="${DIR_VALIDA}"/Data
+
+#Files
+fileinT2="${DIR_DATA}"/mean/MEAN-PASADA-"${fechaini}"-T2.txt
+fileinV10="${DIR_DATA}"/mean/MEAN-PASADA-"${fechaini}"-V10.txt
+fileinTP="${DIR_DATA}"/mean/MEAN-PASADA-"${fechaini}"-TP12H.txt
+fileinSIMB="${DIR_DATA}"/mean/MEAN-PASADA-"${fechaini}"-SIMB.txt
+fileinNIEBLA="${DIR_DATA}"/mean/MEAN-PASADA-"${fechaini}"-NIEBLA.txt
+
+fileoutTXT="${DIR_DATA}"/mean/GLOBAL-MEAN-BIAS-"$YYYY".txt
+fileoutCSV="${DIR_DATA}"/mean/GLOBAL-MEAN-BIAS-"$YYYY".csv
+fileoutHeatmap="${DIR_DATA}"/mean/GLOBAL-HEATMAP-"$YYYY""$MM"-SIMB.csv
+
+#Estadísticos para poder pintar la evolución temporal global
+meanSYNOPt2=$(awk '{s+=$4}END{printf "%.3f\n", s/NR}' $fileinT2)
+meanBIASt2=$(awk '{s+=$7}END{printf "%.3f\n", s/NR}' $fileinT2)
+meanBIASHRESt2=$(awk '{s+=$8}END{printf "%.3f\n", s/NR}' $fileinT2)
+meanMEJORAt2=$(awk '{if (sqrt($7^2) < sqrt($8^2)) i++ }END{print 100*i/NR}' $fileinT2 )
+
+meanSYNOPv10=$(awk '{s+=$4}END{printf "%.3f\n", s/NR}' $fileinV10)
+meanBIASv10=$(awk '{s+=$7}END{printf "%.3f\n", s/NR}' $fileinV10)
+meanBIASHRESv10=$(awk '{s+=$8}END{printf "%.3f\n", s/NR}' $fileinV10)
+meanMEJORAv10=$(awk '{if (sqrt($7^2) < sqrt($8^2)) i++ }END{print 100*i/NR}' $fileinV10 )
+
+meanRMSEt2=$(awk '{s+=$7^2}END{printf "%.3f\n", sqrt(s/NR)}' $fileinT2)
+meanRMSEHRESt2=$(awk '{s+=$8^2}END{printf "%.3f\n", sqrt(s/NR)}' $fileinT2)
+meanRMSEv10=$(awk '{s+=$7^2}END{printf "%.3f\n", sqrt(s/NR)}' $fileinV10)
+meanRMSEHRESv10=$(awk '{s+=$8^2}END{printf "%.3f\n", sqrt(s/NR)}' $fileinV10)
+
+meanHITsimbolo=$(awk '{s+=$8}END{printf "%.3f\n", s/NR}' $fileinSIMB)
+meanSYNOPniebla=$(awk '{s+=$4}END{printf "%.3f\n", s/NR}' $fileinSIMB)
+meanPREDniebla=$(awk '{s+=$5}END{printf "%.3f\n", s/NR}' $fileinSIMB)
+meanHITniebla=$(awk '{s+=$4}END{printf "%.3f\n", s/NR}' $fileinNIEBLA) #uso PC
+
+awk '{if ($4>1 && $5>1) print 1; else if ($4>1) print 0}' $fileinTP > tmpvaltp
+awk '{if ($4>1 && $6>1) print 1; else if ($4>1) print 0}' $fileinTP > tmpvaltphres
+
+meanTP=$(awk '{s+=$1}END{printf "%.3f\n", s/NR}' tmpvaltp )
+meanTPHRES=$(awk '{s+=$1}END{printf "%.3f\n", s/NR}' tmpvaltphres )
+
+echo "Date,t2,t2_bias_meteored,t2_bias_hres,v10,v10_bias_meteored,v10_bias_hres,t2_mejora,v10_mejora,t2_rmse_meteored,t2_rmse_hres,v10_rmse_meteored,v10_rmse_hres,fog_synop,fog_meteored,fog_hit,simb_hit,tp_hit_meteored,tp_hit_hres" > tmpvalcabeceraGLOBAL
+
+echo "${fechaCSV}" "${pasada}","$meanSYNOPt2","$meanBIASt2","$meanBIASHRESt2","$meanSYNOPv10","$meanBIASv10","$meanBIASHRESv10","$meanMEJORAt2","$meanMEJORAv10","$meanRMSEt2","$meanRMSEHRESt2","$meanRMSEv10","$meanRMSEHRESv10","$meanSYNOPniebla","$meanPREDniebla","$meanHITniebla","$meanHITsimbolo","$meanTP","$meanTPHRES" >> "${fileoutTXT}"
+
+cat tmpvalcabeceraGLOBAL "${fileoutTXT}" > "${fileoutCSV}"
+
+#Heat map simbolos mensual
+simbNUM="1 3 9 12 15 18"
+simbNAM=('Sun' 'Cloudy' 'Rain' 'Storm' 'Graupel' 'Snow')
+cat "${DIR_DATA}"/series/serie_SIMB-*_"$YYYY""$MM".txt > tmpvalallSIMB
+k1=-1
+echo nobs,npred,obs,pred,val > tmpvalheatmap
+for i in ${simbNUM}; do
+  k2=-1
+  k1=$( echo $k1 + 1 | bc )
+  for j in ${simbNUM}; do
+    k2=$( echo $k2 + 1 | bc )
+    awk '{if ($8=='$i' && $9=='$j') print 1; else print 0}' tmpvalallSIMB > tmpvalSIMB
+    countSIMB=$(awk '{s+=$1}END{printf "%.3f\n", s}' tmpvalSIMB )
+    echo ${simbNAM[$k1]},${simbNAM[$k2]},$i,$j,$countSIMB >> tmpvalheatmap
+  done
+ 
+done
+mv tmpvalheatmap ${fileoutHeatmap}
+find . -name "tmpval*" -type f -delete
+
+done < filedate
+
+rm filedate
